@@ -26,12 +26,13 @@ export class OrchestratorAgent extends BaseAgent {
         "thoughtProcess": "How you plan to answer this",
         "action": "USE_GRAPH" | "DELEGATE_PARCEL" | "DELEGATE_INGESTION" | "DIRECT_ANSWER",
         "targetId": "Extract any relevant ID (e.g. parcel number) if applicable",
+        "answer": "The direct response to the user's query if you can answer it based on the knowledge",
         "newRelationsToCreate": [{"from": "Entity Name", "type": "relation_type", "to": "Entity Name"}]
       }
       `;
 
       // Simulating LLM planning since we might not have a real API key in the environment
-      const planRaw = await this.callLLM(analysisPrompt, {});
+      const planRaw = await this.callLLM(analysisPrompt, { response_format: { type: "json_object" } });
       let plan;
       try {
         plan = JSON.parse(planRaw);
@@ -41,6 +42,7 @@ export class OrchestratorAgent extends BaseAgent {
           thoughtProcess: "I need to analyze this request and check the knowledge graph.",
           action: "DIRECT_ANSWER",
           targetId: null,
+          answer: `Tras analizar tu consulta, he revisado el grafo. Mi conclusión es que tu consulta ("${query}") ha sido procesada exitosamente.`,
           newRelationsToCreate: [
             { from: 'Consulta Usuario', type: 'busca_sobre', to: query.substring(0, 20) }
           ]
@@ -59,9 +61,9 @@ export class OrchestratorAgent extends BaseAgent {
           input: { parcelId: plan.targetId }
         });
         subAgentOutput = result;
-        answer = `He delegado la tarea al ParcelAgent. Resultado: ${result.status === 'success' ? 'Éxito' : 'Fallo'}.`;
+        answer = `He delegado la tarea al ParcelAgent. Resultado: ${result.status === 'success' ? 'Éxito' : 'Fallo'}. ${plan.answer || ''}`;
       } else {
-        answer = `Tras analizar tu consulta, he revisado el grafo. Mi conclusión es que tu consulta ("${query}") ha sido procesada exitosamente.`;
+        answer = plan.answer || `Tras analizar tu consulta, he procesado la intención.`;
       }
 
       // Step 3: Learn and create new relations found in the analysis
