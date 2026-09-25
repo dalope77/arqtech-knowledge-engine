@@ -80,22 +80,22 @@ export default function DashboardHome() {
               animate={{ opacity: 1, y: 0 }}
               className="w-full mt-8 bg-[#0F0F11] border border-white/10 rounded-2xl p-6 shadow-xl"
             >
-              {response.status === 'success' ? (
+              {response.result?.status === 'success' ? (
                 <div className="space-y-4">
                   <div className="prose prose-invert max-w-none">
                     <p className="text-gray-200 leading-relaxed text-lg whitespace-pre-wrap">
-                      {response.output?.answer}
+                      {response.output?.answer || response.output?.message || response.result?.output?.answer}
                     </p>
                   </div>
                   
-                  {response.output?.learnedRelations && response.output.learnedRelations.length > 0 && (
+                  {response.result?.output?.plan?.newRelationsToCreate && response.result.output.plan.newRelationsToCreate.length > 0 && (
                     <div className="mt-6 pt-6 border-t border-white/5">
                       <h4 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
                         <Sparkles className="w-4 h-4" />
                         Nuevas relaciones aprendidas
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {response.output.learnedRelations.map((rel: any, i: number) => (
+                        {response.result.output.plan.newRelationsToCreate.map((rel: any, i: number) => (
                           <span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-300">
                             <span>{rel.from}</span>
                             <ArrowRight className="w-3 h-3 text-emerald-500/50" />
@@ -110,7 +110,7 @@ export default function DashboardHome() {
                 </div>
               ) : (
                 <div className="text-red-400">
-                  Ha ocurrido un error: {response.error}
+                  Ha ocurrido un error: {response.error || response.result?.error || 'Error desconocido'}
                 </div>
               )}
             </motion.div>
