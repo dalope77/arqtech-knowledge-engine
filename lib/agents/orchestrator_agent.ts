@@ -70,8 +70,8 @@ export class OrchestratorAgent extends BaseAgent {
         for (const rel of plan.newRelationsToCreate) {
           try {
             // Discover/Ensure entities exist
-            const e1 = await this.tools.discoverEntity('INFERENCIA', rel.from, { source: 'ORCHESTRATOR_LEARNING' });
-            const e2 = await this.tools.discoverEntity('INFERENCIA', rel.to, { source: 'ORCHESTRATOR_LEARNING' });
+            const e1 = await this.tools.discoverEntity('HIPOTESIS', rel.from, { source: 'ORCHESTRATOR_LEARNING' });
+            const e2 = await this.tools.discoverEntity('HIPOTESIS', rel.to, { source: 'ORCHESTRATOR_LEARNING' });
             
             if (e1 && e2) {
               // Link them
