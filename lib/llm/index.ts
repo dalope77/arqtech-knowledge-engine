@@ -90,7 +90,61 @@ export class GrokLLMProvider implements LLMProvider {
   }
 }
 
+export class OpenRouterLLMProvider implements LLMProvider {
+  name = 'OpenRouter';
+
+  async generateContent(messages: LLMMessage[], options?: any): Promise<LLMResponse> {
+    const rawKey = process.env.OPENROUTER_API_KEY;
+    if (!rawKey) {
+      console.warn('OPENROUTER_API_KEY is missing. Falling back to MockLLMProvider.');
+      return new MockLLMProvider().generateContent(messages, options);
+    }
+    
+    // Sanitize key
+    const apiKey = rawKey.replace(/['"]/g, '').trim();
+    
+    console.log(`[OpenRouterLLMProvider] Calling OpenRouter API... (Key starts with: ${apiKey.substring(0, 5)}...)`);
+    
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://arqtech.example.com', // Optional but recommended by OpenRouter
+        'X-Title': 'ArqTech Knowledge Engine' // Optional but recommended
+      },
+      body: JSON.stringify({
+        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet', // Powerful default
+        messages: messages,
+        temperature: options?.temperature || 0.1,
+        response_format: options?.response_format || { type: 'text' }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[OpenRouterLLMProvider] API Error:', errorText);
+      throw new Error(`OpenRouter API Error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+
+    return {
+      text: content,
+      usage: {
+        promptTokens: data.usage?.prompt_tokens || 0,
+        completionTokens: data.usage?.completion_tokens || 0,
+        totalTokens: data.usage?.total_tokens || 0
+      }
+    };
+  }
+}
+
 export function getDefaultLLMProvider(): LLMProvider {
+  if (process.env.OPENROUTER_API_KEY) {
+    return new OpenRouterLLMProvider();
+  }
   if (process.env.GROK_API_KEY) {
     return new GrokLLMProvider();
   }
