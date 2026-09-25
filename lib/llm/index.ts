@@ -45,13 +45,16 @@ export class GrokLLMProvider implements LLMProvider {
   name = 'Grok';
 
   async generateContent(messages: LLMMessage[], options?: any): Promise<LLMResponse> {
-    const apiKey = process.env.GROK_API_KEY;
-    if (!apiKey) {
+    const rawKey = process.env.GROK_API_KEY;
+    if (!rawKey) {
       console.warn('GROK_API_KEY is missing. Falling back to MockLLMProvider.');
       return new MockLLMProvider().generateContent(messages, options);
     }
     
-    console.log('[GrokLLMProvider] Calling x.ai API...');
+    // Sanitize key (remove spaces or accidental quotes)
+    const apiKey = rawKey.replace(/['"]/g, '').trim();
+    
+    console.log(`[GrokLLMProvider] Calling x.ai API... (Key starts with: ${apiKey.substring(0, 5)}...)`);
     
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
