@@ -41,33 +41,55 @@ export class MockLLMProvider implements LLMProvider {
   }
 }
 
-// In a real scenario, you would implement GoogleGeminiProvider or OpenAIProvider here.
-export class GeminiLLMProvider implements LLMProvider {
-  name = 'Gemini';
+export class GrokLLMProvider implements LLMProvider {
+  name = 'Grok';
 
   async generateContent(messages: LLMMessage[], options?: any): Promise<LLMResponse> {
-    const apiKey = process.env.LLM_API_KEY;
+    const apiKey = process.env.GROK_API_KEY;
     if (!apiKey) {
-      console.warn('LLM_API_KEY is missing. Falling back to MockLLMProvider.');
+      console.warn('GROK_API_KEY is missing. Falling back to MockLLMProvider.');
       return new MockLLMProvider().generateContent(messages, options);
     }
     
-    // Placeholder for actual Gemini API call
-    console.log('[GeminiLLMProvider] Using real LLM key for generation');
+    console.log('[GrokLLMProvider] Calling x.ai API...');
     
-    // Mocking real response for now to keep the project standalone without billing
-    return {
-      text: JSON.stringify({
-        action: 'extracted_data',
-        data: 'Simulated real data from Gemini'
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'grok-beta', // or 'grok-2-latest'
+        messages: messages,
+        temperature: options?.temperature || 0.1,
+        response_format: options?.response_format || { type: 'text' }
       })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[GrokLLMProvider] API Error:', errorText);
+      throw new Error(`Grok API Error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+
+    return {
+      text: content,
+      usage: {
+        promptTokens: data.usage?.prompt_tokens || 0,
+        completionTokens: data.usage?.completion_tokens || 0,
+        totalTokens: data.usage?.total_tokens || 0
+      }
     };
   }
 }
 
 export function getDefaultLLMProvider(): LLMProvider {
-  if (process.env.NODE_ENV === 'development' && !process.env.LLM_API_KEY) {
-    return new MockLLMProvider();
+  if (process.env.GROK_API_KEY) {
+    return new GrokLLMProvider();
   }
-  return new GeminiLLMProvider();
+  return new MockLLMProvider();
 }
