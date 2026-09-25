@@ -114,7 +114,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
         'X-Title': 'ArqTech Knowledge Engine' // Optional but recommended
       },
       body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet', // Powerful default
+        model: process.env.OPENROUTER_MODEL || 'openrouter/free', // Default to free router for prototyping
         messages: messages,
         temperature: options?.temperature || 0.1,
         response_format: options?.response_format || { type: 'text' }
