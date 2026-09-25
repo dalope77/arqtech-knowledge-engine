@@ -1,5 +1,7 @@
 import { BaseAgent, AgentContext, AgentResult } from './index';
 import { ParcelAgent } from './parcel_agent';
+import fs from 'fs';
+import path from 'path';
 
 export class OrchestratorAgent extends BaseAgent {
   constructor() {
@@ -13,10 +15,31 @@ export class OrchestratorAgent extends BaseAgent {
         throw new Error('A natural language query is required.');
       }
 
+      // Very simple local RAG over the exported graph JSON
+      let graphContext = '';
+      try {
+        const graphPath = path.join(process.cwd(), 'public', 'graph_data.json');
+        if (fs.existsSync(graphPath)) {
+          const data = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+          const keywords = query.toLowerCase().split(' ').filter(w => w.length > 3 && w !== 'como' && w !== 'para' && w !== 'cual' && w !== 'que' && w !== 'tiene');
+          const matchedNodes = data.nodes.filter((n: any) => keywords.some(k => n.name?.toLowerCase().includes(k) || n.type?.toLowerCase().includes(k) || n.id?.toLowerCase().includes(k))).slice(0, 15);
+          if (matchedNodes.length > 0) {
+            graphContext = `\nRelevant Knowledge Graph Entities found in database for context:\n${JSON.stringify(matchedNodes, null, 2)}`;
+          } else {
+            graphContext = `\n(No exact keyword matches found in local graph cache. Proceed with general domain knowledge.)`;
+          }
+        }
+      } catch (e) {
+        console.log('Could not load graph context', e);
+      }
+
       // Step 1: Analyze query and plan execution
       const analysisPrompt = `
-      You are the ArqTech Master Orchestrator. 
+      You are the ArqTech Master Orchestrator, an AI assistant for a Real Estate, Urban Planning, and Architecture Knowledge Graph.
+      Important context: "La Plata" always refers to the Partido/City of La Plata, Buenos Aires, Argentina (not money or silver).
+      
       User Query: "${query}"
+      ${graphContext}
       
       Your goal is to answer the query by using the Knowledge Graph or specialized agents.
       If you deduce any new implicit relationships from the query or the data, you must extract them.
