@@ -41,7 +41,7 @@ export default async function ObservationsPage() {
             <tbody className="divide-y divide-white/5">
               {displayObs && displayObs.length > 0 ? displayObs.map((obs: any) => (
                 <tr key={obs.id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-white">{obs.entities?.name || obs.entity_id.substring(0, 8)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-white">{obs.entities?.name || obs.subject_entity_id.substring(0, 8)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-300 font-mono text-sm">{obs.predicate}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-blue-400 font-medium">{String(obs.value).substring(0, 50)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-400 text-sm">{obs.source}</td>

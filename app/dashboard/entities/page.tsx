@@ -1,9 +1,10 @@
 import { Database, Search, Filter, MoreHorizontal, Download } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { getServiceRoleClient } from '@/lib/supabase';
 
 export const revalidate = 0; // Disable static rendering
 
 export default async function EntitiesPage() {
+  const supabase = getServiceRoleClient();
   const { data: entities, error } = await supabase
     .from('entities')
     .select('*')
