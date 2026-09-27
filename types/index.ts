@@ -92,3 +92,82 @@ export interface Hypothesis {
   created_at: string;
   validated_at?: string;
 }
+
+export interface UserContext {
+  id: string;
+  role: string;
+  objective: string;
+  process_stage: string;
+  experience_level: 'beginner' | 'intermediate' | 'expert';
+  known_information: string[];
+  preferences: {
+    depth: 'summary' | 'detailed';
+    technical_jargon: boolean;
+  };
+  previous_decisions: string[];
+}
+
+export interface RealWorldEvent {
+  id: string;
+  entity_id: string;
+  event_type: 'DECISION' | 'OUTCOME' | 'TRANSACTION' | 'REGULATORY_ACTION' | 'OTHER';
+  description: string;
+  timestamp: string;
+  metadata: Record<string, any>;
+  source: string;
+}
+
+export interface Conflict {
+  id: string;
+  description: string;
+  evidence_ids: string[];
+  resolved: boolean;
+  resolution?: string;
+  evaluation?: {
+    latest_timestamp_id: string;
+    highest_hierarchy_id: string;
+  };
+}
+
+export interface KnowledgeScope {
+  query: string;
+  userContext?: UserContext;
+  entityIds: string[];
+  relationIds: string[];
+  observationIds: string[];
+  documentIds?: string[];
+  eventIds?: string[];
+  vectorResults?: any[];
+  conflicts?: Conflict[];
+  allowedAgentIds?: string[];
+  maxDepth: number;
+  missingInformation: string[];
+  expansionRequests: any[];
+}
+
+export interface Claim {
+  id: string;
+  claim: string;
+  evidence_ids: string[];
+  confidence: number;
+  status: 'pending' | 'validated' | 'rejected';
+}
+
+export interface CandidateAnswer {
+  id: string;
+  perspective: 'normativa' | 'economica' | 'desarrollador' | 'consumidor' | 'resumen' | 'riesgo' | 'general';
+  content: string;
+}
+
+export interface StructuredAgentOutput {
+  observations?: Partial<Observation>[];
+  relations?: Partial<Relation>[];
+  evidence?: any[];
+  claims?: Claim[];
+  missing_information?: string[];
+  conflicts?: Conflict[];
+  hypotheses?: Partial<Hypothesis>[];
+  next_tasks?: any[];
+  answer?: string;
+  candidate_answers?: CandidateAnswer[];
+}

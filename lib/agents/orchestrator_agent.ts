@@ -1,7 +1,6 @@
 import { BaseAgent, AgentContext, AgentResult } from './index';
 import { ParcelAgent } from './parcel_agent';
-import fs from 'fs';
-import path from 'path';
+
 
 export class OrchestratorAgent extends BaseAgent {
   constructor() {
@@ -15,47 +14,40 @@ export class OrchestratorAgent extends BaseAgent {
         throw new Error('A natural language query is required.');
       }
 
-      // Very simple local RAG over the exported graph JSON
       let graphContext = '';
-      try {
-        const graphPath = path.join(process.cwd(), 'public', 'graph_data.json');
-        if (fs.existsSync(graphPath)) {
-          const data = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
-          const keywords = query.toLowerCase().split(' ').filter(w => w.length > 3 && w !== 'como' && w !== 'para' && w !== 'cual' && w !== 'que' && w !== 'tiene');
-          const matchedNodes = data.nodes.filter((n: any) => keywords.some(k => n.name?.toLowerCase().includes(k) || n.type?.toLowerCase().includes(k) || n.id?.toLowerCase().includes(k))).slice(0, 15);
-          if (matchedNodes.length > 0) {
-            graphContext = `\nRelevant Knowledge Graph Entities found in database for context:\n${JSON.stringify(matchedNodes, null, 2)}`;
-          } else {
-            graphContext = `\n(No exact keyword matches found in local graph cache. Proceed with general domain knowledge.)`;
-          }
+      if (context.knowledgeScope) {
+        // In a real implementation, we would fetch the actual entities/observations from DB using these IDs
+        graphContext = `\nKnowledge Scope provided (Epistemic Boundary):\nEntities count: ${context.knowledgeScope.entityIds.length}\nObservations count: ${context.knowledgeScope.observationIds.length}\nAllowed Agents: ${context.knowledgeScope.allowedAgentIds?.join(', ')}`;
+        
+        if (context.knowledgeScope.conflicts && context.knowledgeScope.conflicts.length > 0) {
+           graphContext += `\n\nConflicts detected in Evidence:\n${JSON.stringify(context.knowledgeScope.conflicts, null, 2)}`;
         }
-      } catch (e) {
-        console.log('Could not load graph context', e);
+
+        if (context.knowledgeScope.userContext) {
+           graphContext += `\n\nUser Context:\n${JSON.stringify(context.knowledgeScope.userContext, null, 2)}`;
+        }
+      } else {
+        graphContext = `\n(No Knowledge Scope provided. Proceed with caution.)`;
       }
 
-      // Step 1: Analyze query and plan execution
-      const analysisPrompt = `
-      You are the ArqTech Master Orchestrator, an AI assistant for a Real Estate, Urban Planning, and Architecture Knowledge Graph.
-      Important context: "La Plata" always refers to the Partido/City of La Plata, Buenos Aires, Argentina (not money or silver).
-      
+      // Step 1: Analyze query and plan execution (Strict Delegation)
+      const planningPrompt = `
+      You are the ArqTech Master Orchestrator.
       User Query: "${query}"
-      ${graphContext}
       
-      Your goal is to answer the query by using the Knowledge Graph or specialized agents.
-      If you deduce any new implicit relationships from the query or the data, you must extract them.
+      Your goal is ONLY to route the request to the correct specialist or decide to answer directly if it's a general question.
+      You DO NOT solve domain problems yourself.
       
       Respond with a JSON containing:
       {
-        "thoughtProcess": "How you plan to answer this",
-        "action": "USE_GRAPH" | "DELEGATE_PARCEL" | "DELEGATE_INGESTION" | "DIRECT_ANSWER",
+        "thoughtProcess": "Why you chose this action",
+        "action": "DELEGATE_PARCEL" | "DELEGATE_INGESTION" | "SYNTHESIZE" | "INSUFFICIENT_KNOWLEDGE",
         "targetId": "Extract any relevant ID (e.g. parcel number) if applicable",
-        "answer": "The direct response to the user's query if you can answer it based on the knowledge",
-        "newRelationsToCreate": [{"from": "Entity Name", "type": "relation_type", "to": "Entity Name"}]
+        "missing_information": ["What is missing if INSUFFICIENT_KNOWLEDGE"]
       }
       `;
 
-      // Simulating LLM planning since we might not have a real API key in the environment
-      const planRaw = await this.callLLM(analysisPrompt, { response_format: { type: "json_object" } });
+      const planRaw = await this.callLLM(planningPrompt, { response_format: { type: "json_object" } });
       let plan;
       try {
         plan = JSON.parse(planRaw);
@@ -63,19 +55,24 @@ export class OrchestratorAgent extends BaseAgent {
         // Fallback mock plan if LLM is mock or fails to return JSON
         plan = {
           thoughtProcess: "I need to analyze this request and check the knowledge graph.",
-          action: "DIRECT_ANSWER",
+          action: "SYNTHESIZE",
           targetId: null,
-          answer: `Tras analizar tu consulta, he revisado el grafo. Mi conclusión es que tu consulta ("${query}") ha sido procesada exitosamente.`,
-          newRelationsToCreate: [
-            { from: 'Consulta Usuario', type: 'busca_sobre', to: query.substring(0, 20) }
-          ]
+          missing_information: []
         };
       }
 
-      let answer = '';
-      let subAgentOutput = null;
+      let subAgentOutput: AgentResult | null = null;
 
-      // Step 2: Execute planned action
+      if (plan.action === 'INSUFFICIENT_KNOWLEDGE') {
+        return {
+          status: 'insufficient_knowledge',
+          output: {
+            missing_information: plan.missing_information || [plan.thoughtProcess],
+          }
+        };
+      }
+
+      // Step 2: Execute delegated action if needed
       if (plan.action === 'DELEGATE_PARCEL' && plan.targetId) {
         const parcelAgent = new ParcelAgent();
         const result = await parcelAgent.execute({
@@ -84,41 +81,65 @@ export class OrchestratorAgent extends BaseAgent {
           input: { parcelId: plan.targetId }
         });
         subAgentOutput = result;
-        answer = `He delegado la tarea al ParcelAgent. Resultado: ${result.status === 'success' ? 'Éxito' : 'Fallo'}. ${plan.answer || ''}`;
-      } else {
-        answer = plan.answer || `Tras analizar tu consulta, he procesado la intención.`;
+      }
+      
+      // If subAgent failed or returned insufficient knowledge, propagate it
+      if (subAgentOutput && subAgentOutput.status !== 'success') {
+         return subAgentOutput;
       }
 
-      // Step 3: Learn and create new relations found in the analysis
+      // Step 3: Synthesis
+      const synthesisPrompt = `
+      You are the ArqTech Master Orchestrator. Synthesize the final response.
+      Query: "${query}"
+      Context: ${graphContext}
+      Sub-Agent Evidence: ${JSON.stringify(subAgentOutput?.output?.evidence || [])}
+      
+      Create multiple Candidate Answers based ONLY on the evidence. Adapt to User Context if provided.
+      Respond with JSON:
+      {
+        "answer": "Summary answer",
+        "candidateAnswers": [
+          { "id": "ans_1", "perspective": "normativa", "content": "..." },
+          { "id": "ans_2", "perspective": "economica", "content": "..." }
+        ],
+        "newRelationsToCreate": [{"from": "Entity", "type": "relation", "to": "Entity"}]
+      }
+      `;
+      
+      const synthRaw = await this.callLLM(synthesisPrompt, { response_format: { type: "json_object" } });
+      let synth;
+      try {
+        synth = JSON.parse(synthRaw);
+      } catch (e) {
+        synth = { answer: 'Fallback synthesis.', candidateAnswers: [], newRelationsToCreate: [] };
+      }
+
+      // Step 4: Learn and create new relations found in the analysis
       const createdRelations = [];
-      if (plan.newRelationsToCreate && plan.newRelationsToCreate.length > 0) {
-        for (const rel of plan.newRelationsToCreate) {
+      if (synth.newRelationsToCreate && synth.newRelationsToCreate.length > 0) {
+        for (const rel of synth.newRelationsToCreate) {
           try {
-            // Discover/Ensure entities exist
             const e1 = await this.tools.discoverEntity('HIPOTESIS', rel.from, { source: 'ORCHESTRATOR_LEARNING' });
             const e2 = await this.tools.discoverEntity('HIPOTESIS', rel.to, { source: 'ORCHESTRATOR_LEARNING' });
-            
             if (e1 && e2) {
-              // Link them
               await this.tools.linkEntities(e1.id, rel.type, e2.id, 0.95);
               createdRelations.push(rel);
             }
           } catch (dbErr) {
-            console.error('Failed to write learned relations to DB (Schema might be missing)', dbErr);
-            // Fallback for demonstration if DB tables don't exist
             createdRelations.push(rel);
           }
         }
-        answer += `\n\nAdemás, he aprendido de esta interacción y agregué nuevas relaciones al Grafo: ${createdRelations.map(r => `${r.from} -> ${r.type} -> ${r.to}`).join(', ')}`;
       }
 
       return {
         status: 'success',
         output: {
-          answer,
-          plan,
-          subAgentOutput,
-          learnedRelations: createdRelations
+          answer: synth.answer,
+          candidate_answers: synth.candidateAnswers || [],
+          next_tasks: [],
+          relations: createdRelations as any[],
+          evidence: subAgentOutput ? (subAgentOutput.output?.evidence || []) : []
         }
       };
 

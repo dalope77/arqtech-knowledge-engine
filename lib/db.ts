@@ -1,80 +1,83 @@
-import { Entity, Relation, Observation, Event, AgentRun } from '@/types';
-import { mockEntities, mockRelations, mockObservations, mockEvents, mockAgentRuns } from './mockData';
-
-// In-memory store for mock execution (until Supabase is connected)
-let entities = [...mockEntities];
-let relations = [...mockRelations];
-let observations = [...mockObservations];
-let events = [...mockEvents];
-let agentRuns = [...mockAgentRuns];
+import { Entity, Relation, Observation, Event, AgentRun, RealWorldEvent } from '@/types';
+import { supabase } from './supabase';
 
 export const db = {
   // Entities
-  getEntities: async (): Promise<Entity[]> => [...entities],
-  getEntity: async (id: string): Promise<Entity | undefined> => entities.find(e => e.id === id),
+  getEntities: async (): Promise<Entity[]> => {
+    const { data } = await supabase.from('entities').select('*');
+    return data || [];
+  },
+  getEntity: async (id: string): Promise<Entity | undefined> => {
+    const { data } = await supabase.from('entities').select('*').eq('id', id).single();
+    return data || undefined;
+  },
   createEntity: async (entity: Omit<Entity, 'created_at' | 'updated_at'>): Promise<Entity> => {
-    const newEntity: Entity = {
-      ...entity,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    entities.push(newEntity);
-    return newEntity;
+    const { data } = await supabase.from('entities').insert([entity]).select().single();
+    return data;
   },
 
   // Relations
-  getRelations: async (): Promise<Relation[]> => [...relations],
-  getRelationsForEntity: async (entityId: string): Promise<Relation[]> => 
-    relations.filter(r => r.from_entity_id === entityId || r.to_entity_id === entityId),
+  getRelations: async (): Promise<Relation[]> => {
+    const { data } = await supabase.from('relations').select('*');
+    return data || [];
+  },
+  getRelationsForEntity: async (entityId: string): Promise<Relation[]> => {
+    const { data } = await supabase.from('relations').select('*')
+      .or(`from_entity_id.eq.${entityId},to_entity_id.eq.${entityId}`);
+    return data || [];
+  },
   createRelation: async (relation: Omit<Relation, 'created_at'>): Promise<Relation> => {
-    const newRelation: Relation = {
-      ...relation,
-      created_at: new Date().toISOString(),
-    };
-    relations.push(newRelation);
-    return newRelation;
+    const { data } = await supabase.from('relations').insert([relation]).select().single();
+    return data;
   },
 
   // Observations
-  getObservations: async (): Promise<Observation[]> => [...observations],
-  getObservationsForEntity: async (entityId: string): Promise<Observation[]> =>
-    observations.filter(o => o.subject_entity_id === entityId || o.object_entity_id === entityId),
+  getObservations: async (): Promise<Observation[]> => {
+    const { data } = await supabase.from('observations').select('*');
+    return data || [];
+  },
+  getObservationsForEntity: async (entityId: string): Promise<Observation[]> => {
+    const { data } = await supabase.from('observations').select('*')
+      .or(`subject_entity_id.eq.${entityId},object_entity_id.eq.${entityId}`);
+    return data || [];
+  },
   createObservation: async (observation: Omit<Observation, 'created_at' | 'observed_at' | 'status'>): Promise<Observation> => {
-    const newObservation: Observation = {
-      ...observation,
-      status: 'active',
-      observed_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-    };
-    observations.push(newObservation);
-    return newObservation;
+    const { data } = await supabase.from('observations').insert([observation]).select().single();
+    return data;
   },
 
   // Events
-  getEvents: async (): Promise<Event[]> => [...events],
+  getEvents: async (): Promise<Event[]> => {
+    const { data } = await supabase.from('events').select('*');
+    return data || [];
+  },
   createEvent: async (event: Omit<Event, 'created_at'>): Promise<Event> => {
-    const newEvent: Event = {
-      ...event,
-      created_at: new Date().toISOString(),
-    };
-    events.push(newEvent);
-    return newEvent;
+    const { data } = await supabase.from('events').insert([event]).select().single();
+    return data;
   },
 
   // Agent Runs
-  getAgentRuns: async (): Promise<AgentRun[]> => [...agentRuns],
+  getAgentRuns: async (): Promise<AgentRun[]> => {
+    const { data } = await supabase.from('agent_runs').select('*');
+    return data || [];
+  },
   createAgentRun: async (run: Omit<AgentRun, 'started_at'>): Promise<AgentRun> => {
-    const newRun: AgentRun = {
-      ...run,
-      started_at: new Date().toISOString(),
-    };
-    agentRuns.push(newRun);
-    return newRun;
+    const { data } = await supabase.from('agent_runs').insert([run]).select().single();
+    return data;
   },
   updateAgentRun: async (id: string, updates: Partial<AgentRun>): Promise<AgentRun | undefined> => {
-    const index = agentRuns.findIndex(r => r.id === id);
-    if (index === -1) return undefined;
-    agentRuns[index] = { ...agentRuns[index], ...updates };
-    return agentRuns[index];
+    const { data } = await supabase.from('agent_runs').update(updates).eq('id', id).select().single();
+    return data || undefined;
+  },
+  
+  // Real World Events
+  getRealWorldEvents: async (): Promise<RealWorldEvent[]> => {
+    const { data } = await supabase.from('real_world_events').select('*');
+    return data || [];
+  },
+  
+  recordRealWorldEvent: async (event: RealWorldEvent): Promise<RealWorldEvent> => {
+    const { data } = await supabase.from('real_world_events').insert([event]).select().single();
+    return data;
   }
 };

@@ -60,8 +60,7 @@ export class IngestionAgent extends BaseAgent {
       return {
         status: 'success',
         output: {
-          message: 'Data successfully mapped and ingested into the Knowledge Graph.',
-          recordsProcessed: sampleData.length
+          answer: `Data successfully mapped and ingested into the Knowledge Graph. Processed ${sampleData.length} records.`
         }
       };
 

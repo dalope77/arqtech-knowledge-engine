@@ -20,7 +20,7 @@ export class DiscoveryEngine {
     // In a real scenario, this would involve recursive SQL queries or a graph DB query.
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    const mockHypothesis = {
+    const newHypothesis = {
       title: 'Inferred Regulation Match',
       description: 'Based on recent observations, Parcela 12-B belongs to Distrito R3 which is regulated by Ord. 4452/12. We hypothesize Parcela 12-B must comply with Ord. 4452/12.',
       status: 'candidate',
@@ -30,7 +30,7 @@ export class DiscoveryEngine {
 
     const { data: hypothesis, error } = await client
       .from('hypotheses')
-      .insert(mockHypothesis)
+      .insert(newHypothesis)
       .select()
       .single();
 

@@ -77,4 +77,28 @@ export class AgentTools {
     }
     return relation;
   }
+
+  /**
+   * Records a Real World Event (e.g., a decision, transaction, outcome) to the DB.
+   */
+  async recordRealWorldEvent(
+    entityId: string,
+    eventType: 'DECISION' | 'OUTCOME' | 'TRANSACTION' | 'REGULATORY_ACTION' | 'OTHER',
+    description: string,
+    metadata: Record<string, any> = {}
+  ) {
+    const { db } = await import('../db');
+    const newEvent = await db.recordRealWorldEvent({
+      id: `rw-event-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+      entity_id: entityId,
+      event_type: eventType,
+      description,
+      timestamp: new Date().toISOString(),
+      metadata,
+      source: this.agentId
+    });
+    
+    await logEvent(this.agentId, 'recorded_real_world_event', entityId, { eventType });
+    return newEvent;
+  }
 }
