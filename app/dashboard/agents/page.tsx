@@ -6,8 +6,11 @@ export const revalidate = 0;
 
 const availableAgents = [
   { id: 'ORCHESTRATOR_AGENT', name: 'Master Orchestrator', description: 'Understands natural language and plans execution across the graph.', type: 'Cognitive' },
-  { id: 'PARCEL_AGENT', name: 'Parcel Analyzer', description: 'Evaluates parcels against urban regulations', type: 'Evaluator' },
+  { id: 'PARCEL_AGENT', name: 'Parcel Analyzer', description: 'Evaluates parcels against urban regulations and parameters.', type: 'Evaluator' },
   { id: 'INGESTION_AGENT', name: 'ETL Ingestion Agent', description: 'Extracts external data into the Knowledge Graph EAV standard.', type: 'Ingestion' },
+  { id: 'MARKET_AGENT', name: 'Market Intelligence Agent', description: 'Analyzes real estate trends, demand, and valuation metrics.', type: 'Analyzer' },
+  { id: 'LEGAL_AGENT', name: 'Legal & Regulatory Agent', description: 'Interprets ordinances, decrees, and complex legal texts.', type: 'Evaluator' },
+  { id: 'RISK_AGENT', name: 'Risk Assessment Agent', description: 'Calculates hydraulic, environmental, and infrastructure risks.', type: 'Evaluator' },
 ];
 
 export default async function AgentsPage() {
