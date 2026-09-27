@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "ingest:lp": "npx tsx --env-file=.env.local scripts/ingest_ordenanzas.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
