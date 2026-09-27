@@ -62,12 +62,22 @@ export class ContextBuilder {
 
     const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-    // Naive local search for entities matching keywords or names
+    // Naive local search for entities matching keywords or names or observation contents
     const matchedEntities = allEntities.filter(e => {
       const eName = normalize(e.name);
       const eType = normalize(e.type);
-      return keywords.some(k => eName.includes(normalize(k)) || eType.includes(normalize(k))) ||
+      
+      const entityMatches = keywords.some(k => eName.includes(normalize(k)) || eType.includes(normalize(k))) ||
              entitiesToSearch.some(es => eName.includes(normalize(es)));
+             
+      if (entityMatches) return true;
+
+      // Search inside observations for this entity
+      const entityObservations = allObservations.filter(o => o.subject_entity_id === e.id);
+      return entityObservations.some(o => {
+        const val = normalize(o.value || '');
+        return keywords.some(k => val.includes(normalize(k))) || entitiesToSearch.some(es => val.includes(normalize(es)));
+      });
     }).slice(0, 10);
 
     const entityIds = matchedEntities.map(e => e.id);
@@ -123,10 +133,21 @@ export class ContextBuilder {
     const allObservations = await db.getObservations();
 
     // Expansion: search for entities that match the missing information terms
-    const newEntities = allEntities.filter(e => 
-      !currentScope.entityIds.includes(e.id) &&
-      missingInformation.some(mi => e.name.toLowerCase().includes(mi.toLowerCase()) || e.type.toLowerCase().includes(mi.toLowerCase()))
-    ).slice(0, 5);
+    const newEntities = allEntities.filter(e => {
+      if (currentScope.entityIds.includes(e.id)) return false;
+      
+      const eMatch = missingInformation.some(mi => 
+        e.name.toLowerCase().includes(mi.toLowerCase()) || 
+        e.type.toLowerCase().includes(mi.toLowerCase())
+      );
+      if (eMatch) return true;
+
+      const entityObservations = allObservations.filter(o => o.subject_entity_id === e.id);
+      return entityObservations.some(o => {
+        const val = (o.value || '').toLowerCase();
+        return missingInformation.some(mi => val.includes(mi.toLowerCase()));
+      });
+    }).slice(0, 5);
     const newEntityIds = newEntities.map(e => e.id);
     
     currentScope.entityIds.push(...newEntityIds);

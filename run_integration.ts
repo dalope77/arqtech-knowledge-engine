@@ -7,7 +7,7 @@ import { UserContext } from './types';
 async function runVerticalSlice() {
   console.log('=== ARQTECH KNOWLEDGE ENGINE: VERTICAL SLICE ===\n');
 
-  const query = "Dónde queda Los Ombúes de Hudson";
+  const query = "Qué normativa aprueba la primera fase del POT en La Plata";
   const userContext: UserContext = {
     id: "user-1",
     role: "Desarrollador Inmobiliario",
