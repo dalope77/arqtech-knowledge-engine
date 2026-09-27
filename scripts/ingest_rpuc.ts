@@ -44,7 +44,7 @@ async function ingestRPUC() {
     if (!existingUrb) {
       await db.createEntity({
         id: id,
-        type: tipo === 'BARRIO CERRADO' ? 'BARRIO' : 'CLUB_DE_CAMPO',
+        type: 'PROYECTO',
         name: nombre,
         metadata: {
           expediente: row.expte,
@@ -62,6 +62,7 @@ async function ingestRPUC() {
         from_entity_id: id,
         relation_type: 'pertenece_a',
         to_entity_id: partidoId,
+        metadata: {},
         confidence: 1.0,
       });
 

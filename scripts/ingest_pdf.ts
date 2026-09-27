@@ -76,7 +76,7 @@ async function ingestPDF() {
   
   console.log(`[4] Agent response received.`);
   
-  let extracted: any[] = [];
+  let extracted: any = [];
   try {
     const rawText = llmRes.text.replace(/```json/g, '').replace(/```/g, '').trim();
     extracted = JSON.parse(rawText);
