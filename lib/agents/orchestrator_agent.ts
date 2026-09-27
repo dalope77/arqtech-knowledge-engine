@@ -50,7 +50,10 @@ export class OrchestratorAgent extends BaseAgent {
       const planRaw = await this.callLLM(planningPrompt, { response_format: { type: "json_object" } });
       let plan;
       try {
-        plan = JSON.parse(planRaw);
+        const text = planRaw || '{}';
+        const match = text.match(/\{[\s\S]*\}/);
+        const cleaned = match ? match[0] : '{}';
+        plan = JSON.parse(cleaned);
       } catch (e) {
         // Fallback mock plan if LLM is mock or fails to return JSON
         plan = {
@@ -110,7 +113,10 @@ export class OrchestratorAgent extends BaseAgent {
       const synthRaw = await this.callLLM(synthesisPrompt, { response_format: { type: "json_object" } });
       let synth;
       try {
-        synth = JSON.parse(synthRaw);
+        const text = synthRaw || '{}';
+        const match = text.match(/\{[\s\S]*\}/);
+        const cleaned = match ? match[0] : '{}';
+        synth = JSON.parse(cleaned);
       } catch (e) {
         synth = { answer: 'Fallback synthesis.', candidateAnswers: [], newRelationsToCreate: [] };
       }

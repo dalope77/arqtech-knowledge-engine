@@ -29,7 +29,10 @@ export class QueryAnalyzer {
         { role: 'user', content: prompt }
       ], { response_format: { type: 'json_object' } });
 
-      return JSON.parse(response.text);
+      const text = response.text || '{}';
+      const match = text.match(/\{[\s\S]*\}/);
+      const cleaned = match ? match[0] : '{}';
+      return JSON.parse(cleaned);
     } catch (e) {
       console.warn('QueryAnalyzer failed, falling back to basic extraction.', e);
       return {
@@ -57,11 +60,15 @@ export class ContextBuilder {
     const entitiesToSearch = analysis.entitiesToSearch || [];
     const requiredDomains = analysis.requiredDomains || ['general'];
 
+    const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
     // Naive local search for entities matching keywords or names
-    const matchedEntities = allEntities.filter(e => 
-      keywords.some(k => e.name.toLowerCase().includes(k) || e.type.toLowerCase().includes(k)) ||
-      entitiesToSearch.some(es => e.name.toLowerCase().includes(es.toLowerCase()))
-    ).slice(0, 10);
+    const matchedEntities = allEntities.filter(e => {
+      const eName = normalize(e.name);
+      const eType = normalize(e.type);
+      return keywords.some(k => eName.includes(normalize(k)) || eType.includes(normalize(k))) ||
+             entitiesToSearch.some(es => eName.includes(normalize(es)));
+    }).slice(0, 10);
 
     const entityIds = matchedEntities.map(e => e.id);
 

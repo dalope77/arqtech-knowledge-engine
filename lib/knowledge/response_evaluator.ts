@@ -89,7 +89,10 @@ export class ResponseEvaluator {
         { role: 'user', content: prompt }
       ], { response_format: { type: 'json_object' } });
 
-      const metrics = JSON.parse(response.text);
+      const text = response.text || '{}';
+      const match = text.match(/\{[\s\S]*\}/);
+      const cleaned = match ? match[0] : '{}';
+      const metrics = JSON.parse(cleaned);
       return {
         query_fit: metrics.query_fit || 0,
         evidence_coverage: metrics.evidence_coverage || 0,

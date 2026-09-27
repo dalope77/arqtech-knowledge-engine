@@ -7,7 +7,7 @@ import { UserContext } from './types';
 async function runVerticalSlice() {
   console.log('=== ARQTECH KNOWLEDGE ENGINE: VERTICAL SLICE ===\n');
 
-  const query = "Necesito saber si puedo construir un edificio comercial en la parcela 123";
+  const query = "Dónde queda Los Ombúes de Hudson";
   const userContext: UserContext = {
     id: "user-1",
     role: "Desarrollador Inmobiliario",
