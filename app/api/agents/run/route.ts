@@ -65,13 +65,14 @@ export async function POST(request: Request) {
         result.output?.missing_information && 
         result.output.missing_information.length > 0 &&
         contextBuilder &&
-        knowledgeScope
+        knowledgeScope &&
+        expansions < MAX_EXPANSIONS
       ) {
         console.log(`[Expansion] Missing info detected: ${result.output.missing_information.join(', ')}. Expanding scope... (Expansion ${expansions + 1}/${MAX_EXPANSIONS})`);
         knowledgeScope = await contextBuilder.expandScope(knowledgeScope, result.output.missing_information);
         expansions++;
       } else {
-        break; // Success, hard failure, or no more expansions needed
+        break; // Success, hard failure, or no more expansions allowed
       }
     }
 
