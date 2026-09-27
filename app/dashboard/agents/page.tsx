@@ -11,6 +11,7 @@ const availableAgents = [
   { id: 'MARKET_AGENT', name: 'Market Intelligence Agent', description: 'Analyzes real estate trends, demand, and valuation metrics.', type: 'Analyzer' },
   { id: 'LEGAL_AGENT', name: 'Legal & Regulatory Agent', description: 'Interprets ordinances, decrees, and complex legal texts.', type: 'Evaluator' },
   { id: 'RISK_AGENT', name: 'Risk Assessment Agent', description: 'Calculates hydraulic, environmental, and infrastructure risks.', type: 'Evaluator' },
+  { id: 'CURATOR_AGENT', name: 'Knowledge Curator (Epistemology)', description: 'Filters out noise and decides if new user interactions provide valuable epistemic truth before writing to the Graph.', type: 'Governance' },
 ];
 
 export default async function AgentsPage() {
