@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "ingest:lp": "npx tsx --env-file=.env.local scripts/ingest_ordenanzas.ts",
-    "ingest:lp:deep": "npx tsx --env-file=.env.local scripts/ingest_articulado_lp.ts"
+    "ingest:lp:deep": "npx tsx --env-file=.env.local scripts/ingest_articulado_lp.ts",
+    "ingest:rpuc": "npx tsx --env-file=.env.local scripts/ingest_rpuc.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
