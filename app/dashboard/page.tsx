@@ -108,6 +108,21 @@ export default function DashboardHome() {
                     </div>
                   )}
                 </div>
+              ) : response.result?.status === 'insufficient_knowledge' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-amber-400 mb-4">
+                    <Sparkles className="w-6 h-6" />
+                    <h3 className="text-xl font-bold">Conocimiento Insuficiente</h3>
+                  </div>
+                  <p className="text-gray-300 leading-relaxed">
+                    La IA ha buscado en el grafo de conocimiento, pero no cuenta con la evidencia necesaria para responder. Para evitar alucinaciones, el Agente solicita que ingresemos la siguiente información:
+                  </p>
+                  <ul className="list-disc list-inside text-amber-200/80 space-y-1 mt-2">
+                    {response.output?.missing_information?.map((info: string, idx: number) => (
+                      <li key={idx}>{info}</li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <div className="text-red-400">
                   Ha ocurrido un error: {response.error || response.result?.error || 'Error desconocido'}
