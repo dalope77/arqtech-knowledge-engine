@@ -22,6 +22,48 @@ export const db = {
     return data;
   },
 
+  // New Search Method for ContextBuilder (Scalable)
+  searchEntities: async (keywords: string[], limit: number = 20): Promise<Entity[]> => {
+    const supabase = getServiceRoleClient();
+    const matchedEntities = new Map<string, Entity>();
+    
+    for (const keyword of keywords) {
+      if (keyword.length < 3) continue;
+      
+      // Search in entity name or type
+      const { data: entitiesData } = await supabase
+        .from('entities')
+        .select('*')
+        .or(`name.ilike.%${keyword}%,type.ilike.%${keyword}%`)
+        .limit(limit);
+        
+      if (entitiesData) {
+        entitiesData.forEach(e => matchedEntities.set(e.id, e));
+      }
+      
+      // Search in observations
+      const { data: obsData } = await supabase
+        .from('observations')
+        .select('subject_entity_id')
+        .ilike('value', `%${keyword}%`)
+        .limit(limit);
+        
+      if (obsData && obsData.length > 0) {
+        const entityIds = obsData.map(o => o.subject_entity_id);
+        const { data: linkedEntities } = await supabase
+          .from('entities')
+          .select('*')
+          .in('id', entityIds);
+          
+        if (linkedEntities) {
+          linkedEntities.forEach(e => matchedEntities.set(e.id, e));
+        }
+      }
+    }
+    
+    return Array.from(matchedEntities.values()).slice(0, limit);
+  },
+
   // Relations
   getRelations: async (): Promise<Relation[]> => {
     const supabase = getServiceRoleClient();
