@@ -19,12 +19,12 @@ export default async function AgentsPage() {
   
   const { data: runs, error } = await supabase
     .from('agent_runs')
-    .select('agent_type, status');
+    .select('agent_id, status');
 
   const safeRuns = error ? [] : runs || [];
 
   const agentsWithStats = availableAgents.map(agent => {
-    const agentRuns = safeRuns.filter(r => r.agent_type === agent.id);
+    const agentRuns = safeRuns.filter(r => r.agent_id === agent.id);
     const successRuns = agentRuns.filter(r => r.status === 'success');
     
     return {
