@@ -13,12 +13,13 @@ export class QueryAnalyzer {
     
     Extract the main keywords, potential entity names (like parcel numbers, neighborhoods, zones), 
     and required domains (e.g., 'normativa', 'mercado', 'espacial', 'hidraulica').
+    CRITICAL: For any acronyms or common terms (e.g., "POT", "FOS"), include their expanded forms or synonyms as additional keywords (e.g., "Plan de Ordenamiento Territorial", "Factor de Ocupacion").
     
     Query: "${query}"
     
     Return a JSON containing:
     {
-      "keywords": ["keyword1", "keyword2"],
+      "keywords": ["keyword1", "synonym1", "expanded_acronym"],
       "entitiesToSearch": ["entity name 1"],
       "requiredDomains": ["normativa", "mercado"]
     }`;

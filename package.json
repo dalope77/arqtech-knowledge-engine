@@ -9,7 +9,8 @@
     "lint": "eslint",
     "ingest:lp": "npx tsx --env-file=.env.local scripts/ingest_ordenanzas.ts",
     "ingest:lp:deep": "npx tsx --env-file=.env.local scripts/ingest_articulado_lp.ts",
-    "ingest:rpuc": "npx tsx --env-file=.env.local scripts/ingest_rpuc.ts"
+    "ingest:rpuc": "npx tsx --env-file=.env.local scripts/ingest_rpuc.ts",
+    "ingest:pdf:vector": "npx tsx --env-file=.env.local scripts/ingest_pdf_vector.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
@@ -18,6 +19,7 @@
     "lucide-react": "^1.48.0",
     "next": "16.3.6",
     "pdf-parse": "^1.1.1",
+    "pgvector": "^0.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "^3.7.0"

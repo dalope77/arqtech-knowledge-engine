@@ -129,6 +129,24 @@ export interface Conflict {
   };
 }
 
+export interface Document {
+  id: string;
+  title: string;
+  source_url?: string;
+  document_type?: string;
+  metadata?: Record<string, any>;
+  created_at?: string;
+}
+
+export interface DocumentChunk {
+  id: string;
+  document_id: string;
+  chunk_index: number;
+  content: string;
+  embedding?: number[];
+  created_at?: string;
+}
+
 export interface KnowledgeScope {
   query: string;
   userContext?: UserContext;

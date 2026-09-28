@@ -148,10 +148,26 @@ export const db = {
     return data || [];
   },
   
+  
   recordRealWorldEvent: async (event: RealWorldEvent): Promise<RealWorldEvent> => {
     const supabase = getServiceRoleClient();
     const { data, error } = await supabase.from('real_world_events').insert([event]).select().single();
     if (error) throw new Error(`recordRealWorldEvent failed: ${error.message}`);
+    return data;
+  },
+
+  // Document & Vector Store
+  createDocument: async (doc: any): Promise<any> => {
+    const supabase = getServiceRoleClient();
+    const { data, error } = await supabase.from('documents').insert([doc]).select().single();
+    if (error) throw new Error(`createDocument failed: ${error.message}`);
+    return data;
+  },
+
+  createDocumentChunks: async (chunks: any[]): Promise<any> => {
+    const supabase = getServiceRoleClient();
+    const { data, error } = await supabase.from('document_chunks').insert(chunks).select();
+    if (error) throw new Error(`createDocumentChunks failed: ${error.message}`);
     return data;
   }
 };
