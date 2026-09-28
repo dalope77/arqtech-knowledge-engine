@@ -4,6 +4,8 @@ export type EntityType =
   | 'LOCALIDAD' 
   | 'MUNICIPIO' 
   | 'NORMA' 
+  | 'NORMA_ARTICULO'
+  | 'ZONIFICACION'
   | 'ORGANISMO' 
   | 'OFICINA' 
   | 'INMUEBLE' 
