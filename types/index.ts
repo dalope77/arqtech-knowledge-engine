@@ -157,6 +157,7 @@ export interface CandidateAnswer {
   id: string;
   perspective: 'normativa' | 'economica' | 'desarrollador' | 'consumidor' | 'resumen' | 'riesgo' | 'general';
   content: string;
+  claims?: Claim[];
 }
 
 export interface StructuredAgentOutput {

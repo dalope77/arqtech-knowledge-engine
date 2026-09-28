@@ -99,12 +99,20 @@ export class OrchestratorAgent extends BaseAgent {
       Sub-Agent Evidence: ${JSON.stringify(subAgentOutput?.output?.evidence || [])}
       
       Create multiple Candidate Answers based ONLY on the evidence. Adapt to User Context if provided.
+      For each Candidate Answer, explicitly break down the claims made and reference the specific observation IDs from the context that support them.
+      If you cannot support your claims with observation IDs from the context, do NOT invent them.
       Respond with JSON:
       {
         "answer": "Summary answer",
         "candidateAnswers": [
-          { "id": "ans_1", "perspective": "normativa", "content": "..." },
-          { "id": "ans_2", "perspective": "economica", "content": "..." }
+          { 
+            "id": "ans_1", 
+            "perspective": "normativa", 
+            "content": "...",
+            "claims": [
+              { "id": "claim_1", "claim": "Text of the claim", "evidence_ids": ["OBS_123"], "confidence": 0.9, "status": "pending" }
+            ]
+          }
         ],
         "newRelationsToCreate": [{"from": "Entity", "type": "relation", "to": "Entity"}]
       }

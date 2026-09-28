@@ -76,17 +76,33 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Validate Claims if present
-    if (result.output?.claims && result.output.claims.length > 0 && knowledgeScope) {
+    // 5. Validate Claims inside candidate answers
+    if (result.output?.candidate_answers && result.output.candidate_answers.length > 0 && knowledgeScope) {
       const validator = new ClaimValidator();
-      const validation = await validator.validateClaims(result.output.claims, knowledgeScope);
       
-      // If too many claims are rejected, we could reject the entire response.
-      // For now, we just pass the status back to the client.
-      result.output.claims = [...validation.validClaims, ...validation.rejectedClaims];
+      const validCandidates = [];
+      for (const candidate of result.output.candidate_answers) {
+        if (candidate.claims && candidate.claims.length > 0) {
+          const validation = await validator.validateClaims(candidate.claims, knowledgeScope);
+          candidate.claims = [...validation.validClaims, ...validation.rejectedClaims];
+          
+          if (validation.allValid) {
+            validCandidates.push(candidate);
+          } else {
+            console.warn(`[ClaimValidator] Rejected Candidate '${candidate.id}' due to hallucinated or unsupported claims.`);
+          }
+        } else {
+          // Strict mode: if it makes no verifiable claims, we reject it
+          console.warn(`[ClaimValidator] Rejected Candidate '${candidate.id}' because it provided no claims.`);
+        }
+      }
       
-      if (!validation.allValid) {
-        console.warn(`Some claims were rejected by the ClaimValidator.`);
+      result.output.candidate_answers = validCandidates;
+
+      if (validCandidates.length === 0) {
+        console.warn(`[ClaimValidator] All candidate answers were rejected. Forcing INSUFFICIENT_KNOWLEDGE.`);
+        result.status = 'insufficient_knowledge';
+        result.output.missing_information = ['Evidence could not be validated. Hallucination detected.'];
       }
     }
 
