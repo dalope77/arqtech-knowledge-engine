@@ -30,5 +30,12 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "scratch",
+    "budgetMockData.ts",
+    "build_graph.ts",
+    "run_integration.ts"
+  ]
 }
