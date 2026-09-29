@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Database, GitGraph, FileText, Activity, Users, Settings, Search, MapPin } from 'lucide-react';
+import MobileSidebar from '@/components/MobileSidebar';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: Activity },
@@ -19,8 +20,9 @@ const navItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col md:flex-row">
+      <MobileSidebar />
+      {/* Sidebar Desktop */}
       <aside className="w-64 border-r border-gray-800 bg-gray-900 hidden md:flex md:flex-col">
         <div className="h-16 flex items-center px-6 border-b border-gray-800">
           <GitGraph className="w-6 h-6 text-blue-500 mr-2" />
@@ -47,8 +49,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden h-[calc(100vh-4rem)] md:h-screen">
+        <div className="hidden md:flex h-16 items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
           <h1 className="text-xl font-semibold">Workspace</h1>
         </div>
         <div className="flex-1 overflow-y-auto p-6">
