@@ -18,7 +18,9 @@ export type EntityType =
   | 'DEMANDA' 
   | 'OPORTUNIDAD' 
   | 'HIPOTESIS' 
-  | 'RESULTADO';
+  | 'RESULTADO'
+  | 'URBAN_FOOTPRINT'
+  | 'URBAN_GROWTH_AREA';
 
 export interface Entity {
   id: string;
@@ -43,6 +45,44 @@ export interface Relation {
   created_at: string;
 }
 
+export interface DocumentAsset {
+  id: string;
+  document_id: string;
+  asset_type: 'page_image' | 'extracted_region';
+  page_number: number;
+  storage_path: string;
+  resolution: { width: number; height: number };
+}
+
+export interface VisualEvidence {
+  asset_id: string;
+  bbox: [number, number, number, number];
+  extraction_method: 'YOLO_v8' | 'docTR' | 'OCR_Tesseract' | 'VLM_GPT4o' | 'Table_Transformer' | string;
+  confidence_metrics: {
+    detection: number;
+    ocr?: number;
+    semantic_interpretation?: number;
+  };
+}
+
+export interface VisualTaxonomy {
+  id: string;
+  category: 'PLANO' | 'MAPA' | 'PROCESO' | 'TABLA' | 'GENERAL';
+  label: string;
+  description?: string;
+}
+
+export interface VisualAnnotation {
+  id: string;
+  asset_id: string;
+  taxonomy_id: string;
+  bbox: [number, number, number, number];
+  value?: string;
+  created_by: string;
+  created_at: string;
+  used_in_training: boolean;
+}
+
 export interface Observation {
   id: string;
   subject_entity_id: string;
@@ -53,6 +93,7 @@ export interface Observation {
   source_document?: string;
   source_location?: string;
   evidence?: string;
+  visual_evidence?: VisualEvidence;
   observed_at: string;
   valid_from?: string;
   valid_to?: string;
@@ -163,6 +204,8 @@ export interface KnowledgeScope {
   maxDepth: number;
   missingInformation: string[];
   expansionRequests: any[];
+  artifactIds?: string[];
+  evidenceIds?: string[];
 }
 
 export interface Claim {

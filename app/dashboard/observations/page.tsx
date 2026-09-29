@@ -1,18 +1,31 @@
 import { FileText } from 'lucide-react';
 import { getServiceRoleClient } from '@/lib/supabase';
+import Link from 'next/link';
 
 export const revalidate = 0;
 
-export default async function ObservationsPage() {
+export default async function ObservationsPage({ searchParams }: { searchParams: { page?: string } }) {
+  const page = Number(searchParams?.page || '1');
+  const limit = 50;
+  const start = (page - 1) * limit;
+  const end = start + limit - 1;
+
   const supabase = getServiceRoleClient();
   
-  const { data: observations, error } = await supabase
+  // Removed the entities(name) join because it might fail if FK is not enforced
+  const { data: observations, count, error } = await supabase
     .from('observations')
-    .select('*, entities(name)')
+    .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(50);
+    .range(start, end);
+
+  if (error) {
+    console.error('Observations fetch error:', error);
+  }
 
   const displayObs = error ? [] : observations;
+  const totalCount = count || 0;
+  const totalPages = Math.ceil(totalCount / limit);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -41,7 +54,7 @@ export default async function ObservationsPage() {
             <tbody className="divide-y divide-white/5">
               {displayObs && displayObs.length > 0 ? displayObs.map((obs: any) => (
                 <tr key={obs.id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-white">{obs.entities?.name || obs.subject_entity_id.substring(0, 8)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-white">{obs.subject_entity_id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-300 font-mono text-sm">{obs.predicate}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-blue-400 font-medium">{String(obs.value).substring(0, 50)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-400 text-sm">{obs.source}</td>
@@ -52,6 +65,33 @@ export default async function ObservationsPage() {
               )}
             </tbody>
           </table>
+        </div>
+        
+        <div className="px-6 py-4 border-t border-white/10 bg-black/40 flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            Showing <span className="font-medium text-white">{displayObs.length}</span> of <span className="font-medium text-white">{totalCount}</span> observations
+          </p>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <Link href={`/dashboard/observations?page=${page - 1}`} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-white hover:bg-white/10">
+                Previous
+              </Link>
+            ) : (
+              <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-gray-400 disabled:opacity-50" disabled>Previous</button>
+            )}
+            
+            <span className="px-3 py-1 text-sm text-gray-400 flex items-center">
+              Page {page} of {totalPages}
+            </span>
+
+            {page < totalPages ? (
+              <Link href={`/dashboard/observations?page=${page + 1}`} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-white hover:bg-white/10">
+                Next
+              </Link>
+            ) : (
+              <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-gray-400 disabled:opacity-50" disabled>Next</button>
+            )}
+          </div>
         </div>
       </div>
     </div>

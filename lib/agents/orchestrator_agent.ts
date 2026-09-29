@@ -1,5 +1,6 @@
 import { BaseAgent, AgentContext, AgentResult } from './index';
 import { ParcelAgent } from './parcel_agent';
+import { DataAnalystAgent } from './data_analyst_agent';
 
 
 export class OrchestratorAgent extends BaseAgent {
@@ -14,20 +15,16 @@ export class OrchestratorAgent extends BaseAgent {
         throw new Error('A natural language query is required.');
       }
 
+      // Retrieve Blackboard State
+      const blackboardData = await this.getBlackboard(context.runId);
+      const refs = context.contextRefs || blackboardData?.context_refs || {};
+      
       let graphContext = '';
-      if (context.knowledgeScope) {
-        // In a real implementation, we would fetch the actual entities/observations from DB using these IDs
-        graphContext = `\nKnowledge Scope provided (Epistemic Boundary):\nEntities count: ${context.knowledgeScope.entityIds.length}\nObservations count: ${context.knowledgeScope.observationIds.length}\nAllowed Agents: ${context.knowledgeScope.allowedAgentIds?.join(', ')}`;
-        
-        if (context.knowledgeScope.conflicts && context.knowledgeScope.conflicts.length > 0) {
-           graphContext += `\n\nConflicts detected in Evidence:\n${JSON.stringify(context.knowledgeScope.conflicts, null, 2)}`;
-        }
-
-        if (context.knowledgeScope.userContext) {
-           graphContext += `\n\nUser Context:\n${JSON.stringify(context.knowledgeScope.userContext, null, 2)}`;
-        }
+      if (refs && refs.entities && refs.entities.length > 0) {
+        graphContext = `\nContext References Provided:\nEntities: ${refs.entities.join(', ')}`;
+        if (refs.artifacts && refs.artifacts.length > 0) graphContext += `\nArtifacts: ${refs.artifacts.join(', ')}`;
       } else {
-        graphContext = `\n(No Knowledge Scope provided. Proceed with caution.)`;
+        graphContext = `\n(No Context References provided. Proceed with caution.)`;
       }
 
       // Step 1: Analyze query and plan execution (Strict Delegation)
@@ -38,11 +35,19 @@ export class OrchestratorAgent extends BaseAgent {
       Your goal is ONLY to route the request to the correct specialist or decide to answer directly if it's a general question.
       You DO NOT solve domain problems yourself.
       
+      Routing Options:
+      - "DELEGATE_DATA": EXTREMELY IMPORTANT: Use this IMMEDIATELY for ANY analytical, statistical, grouping, or counting query (e.g., "cuántos", "cantidad", "how many", "count", "grouped by", "amount of barrios per partido", "estadísticas"). DO NOT return INSUFFICIENT_KNOWLEDGE for these queries.
+      - "DELEGATE_URBAN": Use this for ANY query involving urban codes, zoning, building potential, FOS, FOT, ARBA, UrbaSIG, or what can be built on a specific lot. ALSO use this for queries containing cadastral data like "partido", "partida", or "nomenclatura".
+      - "DELEGATE_MARKET": Use this for ANY query asking about financial feasibility, costs, ROI, what type of apartments to build, unit counts ("cuántos deptos"), prices, or real estate market recommendations. NEVER synthesize architectural layout optimization or financial answers yourself. ALWAYS delegate to MARKET.
+      - "DELEGATE_PARCEL": Use ONLY for internal graph operations explicitly requesting to update a parcel's entity in the database.
+      - "SYNTHESIZE": Use ONLY to answer general conversational queries or summarize already provided Knowledge Scope. Do not use for calculating units or areas!
+      - "INSUFFICIENT_KNOWLEDGE": ONLY use this for factual queries about specific entities that are missing from the Knowledge Scope and where no other agent can help. NEVER use this for "how many" or counting queries.
+      
       Respond with a JSON containing:
       {
         "thoughtProcess": "Why you chose this action",
-        "action": "DELEGATE_PARCEL" | "DELEGATE_INGESTION" | "SYNTHESIZE" | "INSUFFICIENT_KNOWLEDGE",
-        "targetId": "Extract any relevant ID (e.g. parcel number) if applicable",
+        "action": "DELEGATE_PARCEL" | "DELEGATE_URBAN" | "DELEGATE_DATA" | "DELEGATE_MARKET" | "SYNTHESIZE" | "INSUFFICIENT_KNOWLEDGE",
+        "targetId": "Extract any relevant ID (e.g. parcel number or address) if applicable",
         "missing_information": ["What is missing if INSUFFICIENT_KNOWLEDGE"]
       }
       `;
@@ -56,9 +61,17 @@ export class OrchestratorAgent extends BaseAgent {
         plan = JSON.parse(cleaned);
       } catch (e) {
         // Fallback mock plan if LLM is mock or fails to return JSON
+        const rawTextLower = (planRaw || '').toLowerCase();
+        let fallbackAction = 'SYNTHESIZE';
+        if (rawTextLower.includes('partido') || rawTextLower.includes('partida')) {
+          fallbackAction = 'DELEGATE_URBAN';
+        } else if (rawTextLower.includes('deptos') || rawTextLower.includes('rentabilidad')) {
+          fallbackAction = 'DELEGATE_MARKET';
+        }
+
         plan = {
-          thoughtProcess: "I need to analyze this request and check the knowledge graph.",
-          action: "SYNTHESIZE",
+          thoughtProcess: "Fallback due to JSON parse error.",
+          action: fallbackAction,
           targetId: null,
           missing_information: []
         };
@@ -75,85 +88,14 @@ export class OrchestratorAgent extends BaseAgent {
         };
       }
 
-      // Step 2: Execute delegated action if needed
-      if (plan.action === 'DELEGATE_PARCEL' && plan.targetId) {
-        const parcelAgent = new ParcelAgent();
-        const result = await parcelAgent.execute({
-          runId: context.runId + '-sub1',
-          objective: 'Delegated by orchestrator',
-          input: { parcelId: plan.targetId }
-        });
-        subAgentOutput = result;
-      }
-      
-      // If subAgent failed or returned insufficient knowledge, propagate it
-      if (subAgentOutput && subAgentOutput.status !== 'success') {
-         return subAgentOutput;
-      }
-
-      // Step 3: Synthesis
-      const synthesisPrompt = `
-      You are the ArqTech Master Orchestrator. Synthesize the final response.
-      Query: "${query}"
-      Context: ${graphContext}
-      Sub-Agent Evidence: ${JSON.stringify(subAgentOutput?.output?.evidence || [])}
-      
-      Create multiple Candidate Answers based ONLY on the evidence. Adapt to User Context if provided.
-      For each Candidate Answer, explicitly break down the claims made and reference the specific observation IDs from the context that support them.
-      If you cannot support your claims with observation IDs from the context, do NOT invent them.
-      Respond with JSON:
-      {
-        "answer": "Summary answer",
-        "candidateAnswers": [
-          { 
-            "id": "ans_1", 
-            "perspective": "normativa", 
-            "content": "...",
-            "claims": [
-              { "id": "claim_1", "claim": "Text of the claim", "evidence_ids": ["OBS_123"], "confidence": 0.9, "status": "pending" }
-            ]
-          }
-        ],
-        "newRelationsToCreate": [{"from": "Entity", "type": "relation", "to": "Entity"}]
-      }
-      `;
-      
-      const synthRaw = await this.callLLM(synthesisPrompt, { response_format: { type: "json_object" } });
-      let synth;
-      try {
-        const text = synthRaw || '{}';
-        const match = text.match(/\{[\s\S]*\}/);
-        const cleaned = match ? match[0] : '{}';
-        synth = JSON.parse(cleaned);
-      } catch (e) {
-        synth = { answer: 'Fallback synthesis.', candidateAnswers: [], newRelationsToCreate: [] };
-      }
-
-      // Step 4: Learn and create new relations found in the analysis
-      const createdRelations = [];
-      if (synth.newRelationsToCreate && synth.newRelationsToCreate.length > 0) {
-        for (const rel of synth.newRelationsToCreate) {
-          try {
-            const e1 = await this.tools.discoverEntity('HIPOTESIS', rel.from, { source: 'ORCHESTRATOR_LEARNING' });
-            const e2 = await this.tools.discoverEntity('HIPOTESIS', rel.to, { source: 'ORCHESTRATOR_LEARNING' });
-            if (e1 && e2) {
-              await this.tools.linkEntities(e1.id, rel.type, e2.id, 0.95);
-              createdRelations.push(rel);
-            }
-          } catch (dbErr) {
-            createdRelations.push(rel);
-          }
-        }
-      }
-
+      // Step 2: Return the routing decision directly. Let the route orchestrate the sub-agents.
       return {
         status: 'success',
         output: {
-          answer: synth.answer,
-          candidate_answers: synth.candidateAnswers || [],
-          next_tasks: [],
-          relations: createdRelations as any[],
-          evidence: subAgentOutput ? (subAgentOutput.output?.evidence || []) : []
+          action: plan.action,
+          targetId: plan.targetId,
+          plan: plan.thoughtProcess,
+          answer: plan.action === 'SYNTHESIZE' ? plan.thoughtProcess : undefined
         }
       };
 

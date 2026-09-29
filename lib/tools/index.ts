@@ -3,9 +3,14 @@ import { createRelation } from '../knowledge/relations';
 import { createObservation } from '../knowledge/observations';
 import { logEvent } from '../events';
 import { EntityType } from '../../types';
+import { RetrievalRouter } from '../knowledge/retrieval_router';
 
 export class AgentTools {
-  constructor(private agentId: string) {}
+  private retrievalRouter: RetrievalRouter;
+  
+  constructor(private agentId: string) {
+    this.retrievalRouter = new RetrievalRouter();
+  }
 
   /**
    * Retrieves an entity from the knowledge graph and logs a consultation event.
@@ -100,5 +105,14 @@ export class AgentTools {
     
     await logEvent(this.agentId, 'recorded_real_world_event', entityId, { eventType });
     return newEvent;
+  }
+
+  /**
+   * Retrieves specific context using the RetrievalRouter.
+   * Allows agents to pull exactly what they need instead of receiving full context.
+   */
+  async retrieveContext(intent: string, params: Record<string, any> = {}) {
+    await logEvent(this.agentId, 'retrieved_context', intent, params);
+    return await this.retrievalRouter.retrieve(intent, params);
   }
 }

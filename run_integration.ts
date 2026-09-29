@@ -43,7 +43,11 @@ async function runVerticalSlice() {
       runId: 'test-run-1',
       objective: 'Answer user query',
       input: { query, userContext },
-      knowledgeScope
+      contextRefs: { 
+        entities: knowledgeScope.entityIds, 
+        artifacts: knowledgeScope.artifactIds || [], 
+        evidence: knowledgeScope.evidenceIds || [] 
+      }
     });
 
     if (result.status === 'insufficient_knowledge' && result.output?.missing_information) {

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { ParcelAgent } from '@/lib/agents/parcel_agent';
 import { IngestionAgent } from '@/lib/agents/ingestion_agent';
+import { WebScrapingAgent } from '@/lib/agents/web_scraping_agent';
 import { OrchestratorAgent } from '@/lib/agents/orchestrator_agent';
+import { RuleRouter } from '@/lib/agents/router';
 import { getServiceRoleClient } from '@/lib/supabase';
 import { ContextBuilder } from '@/lib/knowledge/context_builder';
 import { ClaimValidator } from '@/lib/knowledge/claim_validator';
@@ -10,12 +12,56 @@ import { ResponseEvaluator } from '@/lib/knowledge/response_evaluator';
 export async function POST(request: Request) {
   try {
     const { agentType, input, objective } = await request.json();
+    const client = getServiceRoleClient();
 
+    // ----------------------------------------------------
+    // FASE 3: FAST ROUTER (Only for Orchestrator/Natural Language)
+    // ----------------------------------------------------
+    if (agentType === 'ORCHESTRATOR_AGENT' && input?.query) {
+      const router = new RuleRouter();
+      const decision = router.route(input.query, input?.userContext);
+
+      if (decision.type === 'DETERMINISTIC') {
+        console.log(`[FastRouter] Intercepted deterministic query: ${decision.action}`);
+        
+        // Ejecutar ruta determinística sin LLM
+        if (decision.action === 'VIEW_PARCEL' && decision.targetRef) {
+          const { data: parcel } = await client.from('entities').select('*').eq('id', `PARCELA_${decision.targetRef}`).single();
+          
+          return NextResponse.json({
+            status: 'success',
+            output: {
+              answer: parcel ? `Parcela ${decision.targetRef} encontrada directamente vía Fast Router.` : `Parcela ${decision.targetRef} no encontrada.`,
+              data: parcel,
+              routed_via: 'DETERMINISTIC'
+            }
+          });
+        }
+        
+        if (decision.action === 'LIST_NORMATIVES') {
+          const { data: normativas } = await client.from('entities').select('*').eq('type', 'NORMA').limit(10);
+          return NextResponse.json({
+            status: 'success',
+            output: {
+              answer: `Se encontraron ${normativas?.length || 0} normativas directamente vía Fast Router.`,
+              data: normativas,
+              routed_via: 'DETERMINISTIC'
+            }
+          });
+        }
+      }
+    }
+
+    // ----------------------------------------------------
+    // RUTA ANALÍTICA
+    // ----------------------------------------------------
     let agent;
     if (agentType === 'PARCEL_AGENT') {
       agent = new ParcelAgent();
     } else if (agentType === 'INGESTION_AGENT') {
       agent = new IngestionAgent();
+    } else if (agentType === 'SCRAPING_AGENT') {
+      agent = new WebScrapingAgent();
     } else if (agentType === 'ORCHESTRATOR_AGENT') {
       agent = new OrchestratorAgent();
     } else {
@@ -23,10 +69,11 @@ export async function POST(request: Request) {
     }
     
     // Create Agent Run in DB
-    const client = getServiceRoleClient();
+    const generatedId = `run-${Date.now()}`;
     const { data: run, error: runError } = await client
       .from('agent_runs')
       .insert({
+        id: generatedId,
         agent_id: agent.agentId,
         objective: objective || 'Analyze parcel',
         status: 'running',
@@ -36,16 +83,37 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    let runId = run?.id || `run-${Date.now()}`;
+    let runId = run?.id || generatedId;
     if (runError || !run) {
       console.error('Failed to create agent run.', runError);
     }
 
+    // Initialize Context Refs and Blackboard
+    let contextRefs: any = { entities: [], artifacts: [], evidence: [] };
     let knowledgeScope = undefined;
     let contextBuilder = undefined;
+    
     if (agentType === 'ORCHESTRATOR_AGENT' && input?.query) {
       contextBuilder = new ContextBuilder();
       knowledgeScope = await contextBuilder.buildInitialScope(input.query, input?.userContext);
+      
+      // Store entities in references instead of passing massive text
+      if (knowledgeScope && knowledgeScope.entityIds) {
+        contextRefs.entities = knowledgeScope.entityIds;
+      }
+      
+      // Initialize the blackboard in DB
+      await client
+        .from('agent_runs')
+        .update({ 
+          context_refs: contextRefs,
+          blackboard: {
+            objective: objective || 'Analyze query',
+            required_agents: [],
+            status: 'INIT'
+          }
+        })
+        .eq('id', runId);
     }
 
     const MAX_EXPANSIONS = 3;
@@ -57,7 +125,7 @@ export async function POST(request: Request) {
         runId: runId,
         objective: objective || 'Analyze parcel',
         input: input,
-        knowledgeScope: knowledgeScope
+        contextRefs: contextRefs
       });
 
       if (
@@ -77,7 +145,7 @@ export async function POST(request: Request) {
     }
 
     // 5. Validate Claims inside candidate answers
-    if (result.output?.candidate_answers && result.output.candidate_answers.length > 0 && knowledgeScope) {
+    if (result.output?.action !== 'DELEGATE_DATA' && result.output?.candidate_answers && result.output.candidate_answers.length > 0 && knowledgeScope) {
       const validator = new ClaimValidator();
       
       const validCandidates = [];

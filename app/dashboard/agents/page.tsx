@@ -1,38 +1,47 @@
-import { Users, Bot, Settings, Plus, PlayCircle } from 'lucide-react';
+"use client";
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getServiceRoleClient } from '@/lib/supabase';
+import { Users, Bot, Settings, Plus, PlayCircle, Activity } from 'lucide-react';
+import { getAgents, Agent } from '@/lib/agents/api';
 
-export const revalidate = 0;
-
-const availableAgents = [
-  { id: 'ORCHESTRATOR_AGENT', name: 'Master Orchestrator', description: 'Understands natural language and plans execution across the graph.', type: 'Cognitive' },
-  { id: 'PARCEL_AGENT', name: 'Parcel Analyzer', description: 'Evaluates parcels against urban regulations and parameters.', type: 'Evaluator' },
-  { id: 'INGESTION_AGENT', name: 'ETL Ingestion Agent', description: 'Extracts external data into the Knowledge Graph EAV standard.', type: 'Ingestion' },
-  { id: 'MARKET_AGENT', name: 'Market Intelligence Agent', description: 'Analyzes real estate trends, demand, and valuation metrics.', type: 'Analyzer' },
-  { id: 'LEGAL_AGENT', name: 'Legal & Regulatory Agent', description: 'Interprets ordinances, decrees, and complex legal texts.', type: 'Evaluator' },
-  { id: 'RISK_AGENT', name: 'Risk Assessment Agent', description: 'Calculates hydraulic, environmental, and infrastructure risks.', type: 'Evaluator' },
-  { id: 'CURATOR_AGENT', name: 'Knowledge Curator (Epistemology)', description: 'Filters out noise and decides if new user interactions provide valuable epistemic truth before writing to the Graph.', type: 'Governance' },
+const defaultAgents = [
+  { id: 'ORCHESTRATOR_AGENT', name: 'Master Orchestrator', description: 'Understands natural language and plans execution across the graph.', status: 'active' },
+  { id: 'PARCEL_AGENT', name: 'Parcel Analyzer', description: 'Evaluates parcels against urban regulations and parameters.', status: 'active' },
+  { id: 'INGESTION_AGENT', name: 'ETL Ingestion Agent', description: 'Extracts external data into the Knowledge Graph EAV standard.', status: 'active' },
+  { id: 'MARKET_AGENT', name: 'Market Intelligence Agent', description: 'Analyzes real estate trends, demand, and valuation metrics.', status: 'active' },
+  { id: 'LEGAL_AGENT', name: 'Legal & Regulatory Agent', description: 'Interprets ordinances, decrees, and complex legal texts.', status: 'active' },
+  { id: 'RISK_AGENT', name: 'Risk Assessment Agent', description: 'Calculates hydraulic, environmental, and infrastructure risks.', status: 'active' },
+  { id: 'CURATOR_AGENT', name: 'Knowledge Curator (Epistemology)', description: 'Filters out noise and decides if new user interactions provide valuable epistemic truth before writing to the Graph.', status: 'active' },
+  { id: 'SATELLITE_AGENT', name: 'Satellite / Urban Growth Agent', description: 'Analyzes spatial and temporal data (GeoJSON, WKT, TIFs) to detect territorial transformations.', status: 'active' },
+  { id: 'VISUAL_AGENT', name: 'Visual Annotation Agent', description: 'Processes technical blueprints and imagery to extract objects via YOLO/docTR.', status: 'active' },
+  { id: 'SCRAPING_AGENT', name: 'Web Scraping Agent', description: 'Navigates URLs, extracts raw HTML/Text, and maps it into structured Knowledge Graph entities.', status: 'active' },
 ];
 
-export default async function AgentsPage() {
-  const supabase = getServiceRoleClient();
-  
-  const { data: runs, error } = await supabase
-    .from('agent_runs')
-    .select('agent_id, status');
+export default function AgentsPage() {
+  const [dbAgents, setDbAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const safeRuns = error ? [] : runs || [];
+  useEffect(() => {
+    async function load() {
+      const data = await getAgents();
+      setDbAgents(data);
+      setLoading(false);
+    }
+    load();
+  }, []);
 
-  const agentsWithStats = availableAgents.map(agent => {
-    const agentRuns = safeRuns.filter(r => r.agent_id === agent.id);
-    const successRuns = agentRuns.filter(r => r.status === 'success');
-    
-    return {
-      ...agent,
-      status: 'Active',
-      runs: agentRuns.length,
-      successRate: agentRuns.length > 0 ? Math.round((successRuns.length / agentRuns.length) * 100) + '%' : 'N/A'
-    };
+  // Merge DB agents with default ones
+  const agents = defaultAgents.map(def => {
+    const found = dbAgents.find(a => a.id === def.id || a.name === def.name);
+    return found ? { ...def, ...found } : def;
+  });
+
+  // Add any custom agents created in DB
+  dbAgents.forEach(dbA => {
+    if (!agents.find(a => a.id === dbA.id)) {
+      agents.push(dbA as any);
+    }
   });
 
   return (
@@ -45,49 +54,53 @@ export default async function AgentsPage() {
           </h2>
           <p className="text-gray-400 mt-1">Manage the specialized AI agents running in the system.</p>
         </div>
-        <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-blue-500/20">
-          <Plus className="w-5 h-5" />
-          New Agent
-        </button>
+        <div className="flex gap-4">
+          <Link href="/dashboard/agents/review" className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-purple-500/20">
+            <Activity className="w-5 h-5" />
+            Review Queue
+          </Link>
+          <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-blue-500/20">
+            <Plus className="w-5 h-5" />
+            New Agent
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {agentsWithStats.map((agent) => (
-          <div key={agent.id} className="bg-[#0F0F11] border border-white/10 rounded-2xl p-6 flex flex-col hover:border-white/20 transition-all shadow-xl group">
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                <Bot className="w-6 h-6" />
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {agents.map((agent) => (
+            <div key={agent.id} className="bg-[#0F0F11] border border-white/10 rounded-2xl p-6 flex flex-col hover:border-white/20 transition-all shadow-xl group">
+              <div className="flex justify-between items-start mb-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                  <Bot className="w-6 h-6" />
+                </div>
+                <span className="px-2.5 py-1 text-xs font-semibold rounded-full border bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
+                  {agent.status}
+                </span>
               </div>
-              <span className="px-2.5 py-1 text-xs font-semibold rounded-full border bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
-                {agent.status}
-              </span>
-            </div>
-            
-            <h3 className="text-xl font-bold text-white mb-1">{agent.name}</h3>
-            <p className="text-sm font-mono text-gray-500 mb-3">{agent.id}</p>
-            
-            <p className="text-sm text-gray-400 flex-1 mb-6">{agent.description}</p>
-            
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-white/5 rounded-lg p-3 border border-white/5">
-                <p className="text-xs text-gray-500 mb-1">Total Runs</p>
-                <p className="text-lg font-semibold text-white">{agent.runs}</p>
-              </div>
-              <div className="bg-white/5 rounded-lg p-3 border border-white/5">
-                <p className="text-xs text-gray-500 mb-1">Success Rate</p>
-                <p className="text-lg font-semibold text-emerald-400">{agent.successRate}</p>
+              
+              <h3 className="text-xl font-bold text-white mb-1">{agent.name}</h3>
+              <p className="text-sm font-mono text-gray-500 mb-3">{agent.id}</p>
+              
+              <p className="text-sm text-gray-400 flex-1 mb-6">{agent.description}</p>
+              
+              <div className="flex gap-3">
+                <Link href={`/dashboard/agents/${agent.id}`} className="flex-1 flex items-center justify-center gap-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg text-sm font-medium transition-all border border-blue-500/20">
+                  <Settings className="w-4 h-4" />
+                  Configurar
+                </Link>
+                <Link href="/dashboard/runs" className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                  <PlayCircle className="w-4 h-4" />
+                </Link>
               </div>
             </div>
-            
-            <div className="flex gap-3">
-              <Link href="/dashboard/runs" className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all">
-                <PlayCircle className="w-4 h-4" />
-                Execute
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

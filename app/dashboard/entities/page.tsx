@@ -1,16 +1,27 @@
 import { Database, Search, Filter, MoreHorizontal, Download } from 'lucide-react';
 import { getServiceRoleClient } from '@/lib/supabase';
+import EntityActions from './EntityActions';
+
+import Link from 'next/link';
 
 export const revalidate = 0; // Disable static rendering
 
-export default async function EntitiesPage() {
+export default async function EntitiesPage({ searchParams }: { searchParams: { page?: string } }) {
+  const page = Number(searchParams?.page || '1');
+  const limit = 50;
+  const start = (page - 1) * limit;
+  const end = start + limit - 1;
+
   const supabase = getServiceRoleClient();
-  const { data: entities, error } = await supabase
+  const { data: entities, count, error } = await supabase
     .from('entities')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(start, end);
 
   const safeEntities = entities || [];
+  const totalCount = count || 0;
+  const totalPages = Math.ceil(totalCount / limit);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -84,9 +95,7 @@ export default async function EntitiesPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button className="text-gray-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10">
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
+                    <EntityActions entityId={entity.id} />
                   </td>
                 </tr>
               ))}
@@ -95,10 +104,29 @@ export default async function EntitiesPage() {
         </div>
         
         <div className="px-6 py-4 border-t border-white/10 bg-black/40 flex items-center justify-between">
-          <p className="text-sm text-gray-500">Showing <span className="font-medium text-white">{safeEntities.length}</span> entities</p>
+          <p className="text-sm text-gray-500">
+            Showing <span className="font-medium text-white">{safeEntities.length}</span> of <span className="font-medium text-white">{totalCount}</span> entities
+          </p>
           <div className="flex gap-2">
-            <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-gray-400 disabled:opacity-50" disabled>Previous</button>
-            <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-white hover:bg-white/10">Next</button>
+            {page > 1 ? (
+              <Link href={`/dashboard/entities?page=${page - 1}`} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-white hover:bg-white/10">
+                Previous
+              </Link>
+            ) : (
+              <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-gray-400 disabled:opacity-50" disabled>Previous</button>
+            )}
+            
+            <span className="px-3 py-1 text-sm text-gray-400 flex items-center">
+              Page {page} of {totalPages}
+            </span>
+
+            {page < totalPages ? (
+              <Link href={`/dashboard/entities?page=${page + 1}`} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-white hover:bg-white/10">
+                Next
+              </Link>
+            ) : (
+              <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-sm text-gray-400 disabled:opacity-50" disabled>Next</button>
+            )}
           </div>
         </div>
       </div>

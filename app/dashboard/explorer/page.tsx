@@ -13,18 +13,29 @@ export default function KnowledgeExplorer() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
+  const [counts, setCounts] = useState({ entities: 0, relations: 0, observations: 0 });
+
   useEffect(() => {
     async function loadGraph() {
       try {
-        const [entRes, relRes, obsRes] = await Promise.all([
-          supabase.from('entities').select('*'),
-          supabase.from('relations').select('*'),
-          supabase.from('observations').select('*')
+        const [entCount, relCount, obsCount, entData, relData, obsData] = await Promise.all([
+          supabase.from('entities').select('*', { count: 'exact', head: true }),
+          supabase.from('relations').select('*', { count: 'exact', head: true }),
+          supabase.from('observations').select('*', { count: 'exact', head: true }),
+          supabase.from('entities').select('*').limit(50).order('created_at', { ascending: false }),
+          supabase.from('relations').select('*').limit(100).order('created_at', { ascending: false }),
+          supabase.from('observations').select('*').limit(100).order('created_at', { ascending: false })
         ]);
         
-        if (entRes.data) setEntities(entRes.data);
-        if (relRes.data) setRelations(relRes.data);
-        if (obsRes.data) setObservations(obsRes.data);
+        setCounts({
+          entities: entCount.count || 0,
+          relations: relCount.count || 0,
+          observations: obsCount.count || 0
+        });
+
+        if (entData.data) setEntities(entData.data);
+        if (relData.data) setRelations(relData.data);
+        if (obsData.data) setObservations(obsData.data);
       } catch (err) {
         console.error('Error loading graph:', err);
       } finally {
@@ -183,15 +194,15 @@ export default function KnowledgeExplorer() {
               <div className="space-y-3 relative z-10">
                 <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
                   <span className="text-gray-400 font-medium">Entidades Totales</span>
-                  <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">{entities.length}</span>
+                  <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">{counts.entities}</span>
                 </div>
                 <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
                   <span className="text-gray-400 font-medium">Relaciones Formadas</span>
-                  <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">{relations.length}</span>
+                  <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">{counts.relations}</span>
                 </div>
                 <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
                   <span className="text-gray-400 font-medium">Evidencias Extraídas</span>
-                  <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">{observations.length}</span>
+                  <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">{counts.observations}</span>
                 </div>
               </div>
             </div>

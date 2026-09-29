@@ -81,7 +81,10 @@ export default function AgentRunsPage() {
                 >
                   <option value="ORCHESTRATOR_AGENT">Master Orchestrator (Natural Language)</option>
                   <option value="PARCEL_AGENT">Parcel Analyzer Agent</option>
-                  <option value="INGESTION_AGENT">ETL Ingestion Agent</option>
+                  <option value="INGESTION_AGENT">ETL Ingestion Agent (Tabular Data)</option>
+                  <option value="SCRAPING_AGENT">Web Scraping Agent (URLs & Links)</option>
+                  <option value="VISUAL_AGENT">Visual Annotation Agent</option>
+                  <option value="SATELLITE_AGENT">Satellite / Urban Growth Agent</option>
                   <option value="DOCUMENT_AGENT" disabled>Document Parser (Coming Soon)</option>
                 </select>
               </div>
@@ -104,6 +107,39 @@ export default function AgentRunsPage() {
                     value={targetInput}
                     onChange={(e) => setTargetInput(e.target.value)}
                     placeholder="e.g. 12-B-34"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+              ) : agentType === 'VISUAL_AGENT' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Image / Blueprint URL</label>
+                  <input 
+                    type="text" 
+                    value={targetInput}
+                    onChange={(e) => setTargetInput(e.target.value)}
+                    placeholder="https://example.com/blueprint.jpg"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+              ) : agentType === 'SATELLITE_AGENT' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Target Entity ID or WKT</label>
+                  <input 
+                    type="text" 
+                    value={targetInput}
+                    onChange={(e) => setTargetInput(e.target.value)}
+                    placeholder="BARRIO_CERRADO_123"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+              ) : agentType === 'SCRAPING_AGENT' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Target Web URL</label>
+                  <input 
+                    type="text" 
+                    value={targetInput}
+                    onChange={(e) => setTargetInput(e.target.value)}
+                    placeholder="https://www.arba.gov.ar/GuiaTramites..."
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>

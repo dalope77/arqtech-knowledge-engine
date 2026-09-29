@@ -7,16 +7,28 @@ export class IngestionAgent extends BaseAgent {
 
   async execute(context: AgentContext): Promise<AgentResult> {
     try {
-      const { externalDataSchema, sampleData } = context.input;
-      if (!externalDataSchema || !sampleData) {
-        throw new Error('externalDataSchema and sampleData are required in input');
+      let { externalDataSchema, sampleData } = context.input;
+      
+      // En caso de que se haya mandado un string desde la UI y no un objeto estructurado
+      if (typeof externalDataSchema === 'string') {
+        try {
+          const parsed = JSON.parse(externalDataSchema);
+          externalDataSchema = parsed.schema || parsed;
+          sampleData = parsed.data || [parsed];
+        } catch(e) {
+           // fallback if JSON is malformed
+           throw new Error("ETL Agent requires a valid JSON schema or data payload.");
+        }
       }
 
-      // Step 1: Prompt the LLM to map the foreign schema into our EAV (Entity-Attribute-Value) Knowledge Graph
+      if (!externalDataSchema || !sampleData || !Array.isArray(sampleData)) {
+        throw new Error('Valid externalDataSchema and sampleData array are required in input.');
+      }
+
       const mappingPrompt = `
       You are an ETL Agent.
       Analyze this foreign database schema: ${JSON.stringify(externalDataSchema)}
-      And this sample data: ${JSON.stringify(sampleData)}
+      And this sample data: ${JSON.stringify(sampleData).substring(0, 3000)}
       
       Map it to our Knowledge Graph which supports:
       - Entities (id, type, name)
@@ -28,44 +40,39 @@ export class IngestionAgent extends BaseAgent {
 
       const mappingPlanRaw = await this.callLLM(mappingPrompt, {});
       
-      // Assume the LLM returns a structured plan to ingest the data
-      // For demonstration, we simulate parsing the LLM response
-      
-      // Step 2: Execute the ingestion (simulated)
+      let processed = 0;
       for (const record of sampleData) {
-        // Create the main entity
-        const entityType = externalDataSchema.tableName.toUpperCase(); // e.g., "PARCELAS" -> "PARCELAS"
-        const entityName = record.nombre || record.id || `Entity ${record.id}`;
+        const entityType = externalDataSchema.tableName?.toUpperCase() || 'DB_RECORD';
+        const entityName = record.nombre || record.name || record.id || `Entity ${record.id}`;
         
         const entity = await this.tools.discoverEntity(entityType, entityName, {
-          source: 'INGESTION_AGENT',
+          source: 'ETL_INGESTION',
           original_id: record.id
         });
 
-        // Add observations for each column
         for (const [key, value] of Object.entries(record)) {
-          if (key === 'id' || key === 'nombre') continue;
-          
+          if (key === 'id' || key === 'nombre' || key === 'name') continue;
           if (entity) {
              await this.tools.recordObservation(
                entity.id,
-               key, // predicate (e.g. 'altura_maxima')
-               String(value), // value
+               key,
+               String(value),
                'External DB Ingestion'
              );
           }
         }
+        processed++;
       }
 
       return {
         status: 'success',
         output: {
-          answer: `Data successfully mapped and ingested into the Knowledge Graph. Processed ${sampleData.length} records.`
+          answer: `Datos tabulares mapeados e ingeridos con éxito en el Knowledge Graph. Se procesaron ${processed} registros.`
         }
       };
 
     } catch (error: any) {
-      console.error('IngestionAgent Execution Failed:', error);
+      console.error('IngestionAgent Failed:', error);
       return { status: 'failed', error: error.message || 'Unknown error' };
     }
   }

@@ -17,21 +17,22 @@ export class ParcelAgent extends BaseAgent {
       
       // Step 2: If it doesn't exist, check if we have evidence in context
       if (!parcel) {
-        const evaluation = await this.callLLM(`Can you find factual information to create Parcel ${parcelId} in the provided context? If yes, extract it. If no, reply with exactly "INSUFFICIENT_KNOWLEDGE".`, context.knowledgeScope || context.input);
+        // En Fase 2 los datos reales vendrían de hacer fetch a las entidades en base a contextRefs.
+        // Aquí pasamos las referencias para que el modelo sepa sobre qué razonar.
+        const evaluation = await this.callLLM(`Can you find factual information to create Parcel ${parcelId} based on the provided context references? If yes, extract it. If no, reply with exactly "INSUFFICIENT_KNOWLEDGE".`, context.contextRefs || context.input);
         
         if (evaluation.includes('INSUFFICIENT_KNOWLEDGE')) {
           return {
             status: 'insufficient_knowledge',
             output: {
-              answer: `No hay suficiente información en el contexto para analizar la parcela ${parcelId}.`,
+              answer: `No hay suficiente información referenciada para analizar la parcela ${parcelId}.`,
               missing_information: [`Datos y características de la parcela ${parcelId}`]
             }
           };
         }
         
-        // If we found it in context, we create it
         parcel = await this.tools.discoverEntity('PARCELA', `Parcela ${parcelId}`, {
-          source: 'KnowledgeScope Extraction'
+          source: 'Agent Discovery'
         });
       }
 
@@ -39,8 +40,8 @@ export class ParcelAgent extends BaseAgent {
         return { status: 'failed', error: 'Could not resolve parcel' };
       }
 
-      // Step 3: Use LLM to extract relations or observations from scope
-      const extraction = await this.callLLM(`Extract zoning and max height for parcel ${parcelId}. Return JSON with "zone" and "max_height".`, context.knowledgeScope || {});
+      // Step 3: Analyze context and extract claims
+      const extraction = await this.callLLM(`Extract zoning and max height for parcel ${parcelId} from the provided references. Return strictly JSON with "zone" and "max_height".`, context.contextRefs || {});
       
       let zoneName = 'Distrito R-1';
       let maxHeight = '9 metros';
@@ -63,14 +64,29 @@ export class ParcelAgent extends BaseAgent {
         parcel.id,
         'altura_maxima',
         maxHeight,
-        'KnowledgeScope Extraction'
+        'ParcelAgent Analysis'
       );
+
+      // FASE 2: Producir un Artifact persistente
+      const artifactContent = {
+        parcel_id: parcel.id,
+        zone_name: zoneName,
+        max_height: maxHeight,
+        analysis_summary: `La parcela ${parcelId} pertenece a la zona ${zoneName} con altura máxima de ${maxHeight}.`
+      };
+      
+      const artifactId = await this.produceArtifact(context.runId, 'PARCEL_ANALYSIS', artifactContent, { version: '1.0' });
 
       return {
         status: 'success',
         output: {
-          answer: 'Parcel analyzed and graph updated successfully',
-          evidence: [parcel]
+          artifact_id: artifactId,
+          claims: [
+            `Parcela ${parcelId} -> pertenece_a -> ${zoneName}`,
+            `Parcela ${parcelId} -> altura_maxima -> ${maxHeight}`
+          ],
+          evidence: [parcel.id, zone?.id].filter(Boolean),
+          observations: ['altura_maxima']
         }
       };
 

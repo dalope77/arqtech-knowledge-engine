@@ -1,14 +1,20 @@
 import Link from 'next/link';
-import { Database, GitGraph, FileText, Activity, Users, Settings, Search } from 'lucide-react';
+import { Database, GitGraph, FileText, Activity, Users, Settings, Search, MapPin } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: Activity },
+  { name: 'Epistemic Health', href: '/dashboard/health', icon: Activity },
+  { name: 'Spatial Map', href: '/dashboard/map', icon: MapPin },
   { name: 'Knowledge Explorer', href: '/dashboard/explorer', icon: Search },
   { name: 'Entities', href: '/dashboard/entities', icon: Database },
   { name: 'Observations', href: '/dashboard/observations', icon: FileText },
   { name: 'Events', href: '/dashboard/events', icon: Activity },
   { name: 'Agents', href: '/dashboard/agents', icon: Users },
+  { name: 'Agent Chat', href: '/dashboard/chat', icon: Users },
   { name: 'Agent Runs', href: '/dashboard/runs', icon: Settings },
+  { name: 'Agent Reviews', href: '/dashboard/agents/review', icon: Activity },
+  { name: 'Visual Labeling', href: '/dashboard/visual', icon: FileText },
+  { name: 'Satellite Agent', href: '/dashboard/satellite', icon: MapPin },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

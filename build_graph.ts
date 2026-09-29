@@ -99,6 +99,131 @@ async function buildGraph() {
     }
   }
 
+  // Add geopackage nodes
+  try {
+    const Database = require('better-sqlite3');
+    const gpkgPath = path.join(process.cwd(), 'docs', 'vmn_ci.gpkg');
+    if (fs.existsSync(gpkgPath)) {
+      const db = new Database(gpkgPath);
+      // Add a central node for the geopackage dataset
+      const gpkgNodeId = 'DATASET_VMN_CI';
+      nodes.push({
+        id: gpkgNodeId,
+        name: 'Dataset VMN CI',
+        type: 'DATASET',
+        val: 20
+      });
+
+      // Get table name (assuming vmn_2024_completo__vnm2104_pdo)
+      const contents = db.prepare("SELECT table_name FROM gpkg_contents").all();
+      if (contents.length > 0) {
+        const tableName = contents[0].table_name;
+        // Fetch a sample of properties so we don't overwhelm the graph, or fetch all.
+        // Let's limit to 500 nodes to keep the frontend graph performant.
+        const properties = db.prepare(`SELECT id, titulo, valor_usd, lat, lon FROM ${tableName} LIMIT 500`).all();
+        
+        console.log(`Found ${properties.length} properties in ${tableName}`);
+        
+        for (const prop of properties) {
+          const propId = 'VMN_' + prop.id;
+          nodes.push({
+            id: propId,
+            name: prop.titulo || `Propiedad ${prop.id}`,
+            type: 'INMUEBLE',
+            val: 8,
+            lat: prop.lat,
+            lon: prop.lon,
+            precio: prop.valor_usd
+          });
+
+          // Link to dataset
+          links.push({
+            source: gpkgNodeId,
+            target: propId,
+            type: 'contiene_inmueble'
+          });
+        }
+      }
+      db.close();
+    }
+  } catch (err) {
+    console.error('Error reading geopackage:', err);
+  }
+
+  // Add KML nodes
+  try {
+    const { XMLParser } = require('fast-xml-parser');
+    const kmlPath = path.join(process.cwd(), 'docs', 'barrios.kml');
+    if (fs.existsSync(kmlPath)) {
+      const kmlData = fs.readFileSync(kmlPath, 'utf8');
+      const parser = new XMLParser({ ignoreAttributes: false });
+      const result = parser.parse(kmlData);
+      
+      let document = result?.kml?.Document;
+      let placemarks = [];
+      if (document) {
+        if (document.Folder) {
+          const folders = Array.isArray(document.Folder) ? document.Folder : [document.Folder];
+          folders.forEach((f: any) => {
+            if (f.Placemark) {
+              placemarks = placemarks.concat(Array.isArray(f.Placemark) ? f.Placemark : [f.Placemark]);
+            }
+          });
+        } else if (document.Placemark) {
+          placemarks = Array.isArray(document.Placemark) ? document.Placemark : [document.Placemark];
+        }
+      }
+
+      console.log(`Found ${placemarks.length} placemarks in KML`);
+
+      // Add a central node for the KML dataset
+      const kmlNodeId = 'DATASET_BARRIOS_KML';
+      nodes.push({
+        id: kmlNodeId,
+        name: 'Dataset Barrios KML',
+        type: 'DATASET',
+        val: 20
+      });
+
+      // Fetch a sample or all. Limiting to 500 for performance
+      const samplePlacemarks = placemarks.slice(0, 500);
+      
+      for (const p of samplePlacemarks) {
+        const pId = p['@_id'] || ('BARRIO_' + Math.random().toString(36).substr(2, 9));
+        let lat = undefined;
+        let lon = undefined;
+        if (p.LookAt) {
+          lat = p.LookAt.latitude;
+          lon = p.LookAt.longitude;
+        } else if (p.Point && p.Point.coordinates) {
+          const coords = p.Point.coordinates.split(',');
+          if (coords.length >= 2) {
+            lon = parseFloat(coords[0]);
+            lat = parseFloat(coords[1]);
+          }
+        }
+        
+        nodes.push({
+          id: pId,
+          name: p.name || 'Barrio',
+          type: 'BARRIO',
+          val: 8,
+          lat,
+          lon
+        });
+
+        // Link to dataset
+        links.push({
+          source: kmlNodeId,
+          target: pId,
+          type: 'contiene_barrio'
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error reading KML:', err);
+  }
+
   const graphData = { nodes, links };
   fs.writeFileSync(path.join(process.cwd(), 'public', 'graph_data.json'), JSON.stringify(graphData, null, 2));
   

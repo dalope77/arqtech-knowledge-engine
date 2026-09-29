@@ -54,65 +54,38 @@ export class ContextBuilder {
     const keywords = analysis.keywords || [];
     const entitiesToSearch = analysis.entitiesToSearch || [];
     
-    // 2. Scalable database search using keywords
+    // 2. Scalable database search using keywords to grab ENTITY IDs ONLY
     const searchTerms = [...keywords, ...entitiesToSearch];
     const matchedEntities = await db.searchEntities(searchTerms, 10);
     const entityIds = matchedEntities.map(e => e.id);
 
-    // Get relations connected to matched entities
-    let matchedRelations = [];
-    if (entityIds.length > 0) {
-      // In a real production app we would do a single query `in (entityIds)`
-      // for relations, but we can iterate or rely on a new db method.
-      // For now we simulate with a limited query (we should add getRelationsForEntities later)
-      for (const id of entityIds) {
-        const rels = await db.getRelationsForEntity(id);
-        matchedRelations.push(...rels);
-      }
-    }
-    // Deduplicate
-    matchedRelations = Array.from(new Map(matchedRelations.map(r => [r.id, r])).values()).slice(0, 20);
-    const relationIds = matchedRelations.map(r => r.id);
+    // 3. Obtain Relevant Artifacts and Evidence
+    // (Por ahora un stub, en el futuro usaremos RetrievalRouter para buscar artifacts semánticamente)
+    const artifactIds: string[] = [];
+    const evidenceIds: string[] = [];
 
-    // Bring in connected entities that were missed by text search
-    matchedRelations.forEach(r => {
-      if (!entityIds.includes(r.from_entity_id)) entityIds.push(r.from_entity_id);
-      if (!entityIds.includes(r.to_entity_id)) entityIds.push(r.to_entity_id);
-    });
-
-    // Get observations for all included entities
-    let matchedObservations = [];
-    if (entityIds.length > 0) {
-      for (const id of entityIds) {
-        const obs = await db.getObservationsForEntity(id);
-        matchedObservations.push(...obs);
-      }
-    }
-    // Deduplicate
-    matchedObservations = Array.from(new Map(matchedObservations.map(o => [o.id, o])).values()).slice(0, 30);
-    const observationIds = matchedObservations.map(o => o.id);
-
-    const conflictResolver = new ConflictResolver();
-    const conflicts = await conflictResolver.detectAndEvaluateConflicts(matchedObservations);
-
-    // 3. Construct KnowledgeScope
-    const scope: KnowledgeScope = {
+    // 4. Scope Validator (Fase 6 incrustada parcialmente)
+    // Nos aseguramos de no incluir información de más.
+    const finalEntities = entityIds.slice(0, 5); // Limitar a las 5 más relevantes
+    
+    return {
       query,
       userContext,
-      entityIds,
-      relationIds,
-      observationIds,
-      conflicts,
+      entityIds: finalEntities,
+      relationIds: [],
+      observationIds: [],
+      conflicts: [],
       documentIds: [],
       eventIds: [],
       vectorResults: [],
       allowedAgentIds: this.determineAllowedAgents(analysis.requiredDomains),
-      maxDepth: 3,
+      maxDepth: 1,
       missingInformation: [],
-      expansionRequests: []
+      expansionRequests: [],
+      // Nuevos campos de referencias para la Fase 5
+      artifactIds: artifactIds,
+      evidenceIds: []
     };
-
-    return scope;
   }
 
   async expandScope(currentScope: KnowledgeScope, missingInformation: string[]): Promise<KnowledgeScope> {

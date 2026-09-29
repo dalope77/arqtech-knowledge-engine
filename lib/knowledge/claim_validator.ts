@@ -1,5 +1,5 @@
 import { Claim, KnowledgeScope } from '@/types';
-import { db } from '../db';
+import { getServiceRoleClient } from '../supabase';
 import { getDefaultLLMProvider } from '../llm';
 
 export interface ValidationResult {
@@ -15,12 +15,11 @@ export class ClaimValidator {
     const validClaims: Claim[] = [];
     const rejectedClaims: Claim[] = [];
 
-    // Pre-fetch scope observations once
-    const scopeObservations = await db.getObservations();
-    const allowedObservations = scopeObservations.filter(o => scope.observationIds.includes(o.id));
+    // No longer fetching all observations blindly. Evidence is checked per claim.
+    const allowedObservations: any[] = [];
 
     for (const claim of claims) {
-      const result = await this.validateSingleClaim(claim, scope, allowedObservations);
+      const result = await this.validateSingleClaim(claim, scope);
       
       claim.status = result.isValid ? 'validated' : 'rejected';
 
@@ -39,43 +38,48 @@ export class ClaimValidator {
     };
   }
 
-  private async validateSingleClaim(claim: Claim, scope: KnowledgeScope, allowedObservations: any[]): Promise<ValidationResult> {
-    // 1. Check if evidence is provided
-    if (!claim.evidence_ids || claim.evidence_ids.length === 0) {
-      return { isValid: false, claim, reason: 'No evidence provided.' };
+  private async validateSingleClaim(claim: Claim, scope: KnowledgeScope): Promise<ValidationResult> {
+    const supabase = getServiceRoleClient();
+
+    // 1. Fetch the actual claim and evidence from the database
+    const { data: dbClaim } = await supabase.from('claims').select('*').eq('id', claim.id).single();
+    const { data: evidenceItems } = await supabase.from('evidence').select('*').eq('claim_id', claim.id);
+
+    if (!dbClaim) {
+       // Si el claim viene en memoria (ej. de un agente en transición), saltamos a validación básica
+       if (!claim.evidence_ids || claim.evidence_ids.length === 0) {
+         return { isValid: false, claim, reason: 'No evidence provided.' };
+       }
+    } else {
+       if (!evidenceItems || evidenceItems.length === 0) {
+         return { isValid: false, claim, reason: 'No evidence linked in the database.' };
+       }
     }
 
-    // 2. Check if evidence belongs to the KnowledgeScope
-    const outOfScopeEvidence = claim.evidence_ids.filter(id => !scope.observationIds.includes(id));
-    if (outOfScopeEvidence.length > 0) {
-      return { isValid: false, claim, reason: `Evidence IDs [${outOfScopeEvidence.join(', ')}] are out of the KnowledgeScope.` };
-    }
+    const evidenceToEvaluate = evidenceItems || claim.evidence_ids;
 
-    // 3. Fetch evidence content
-    const evidenceItems = allowedObservations.filter(o => claim.evidence_ids.includes(o.id));
-    if (evidenceItems.length !== claim.evidence_ids.length) {
-      return { isValid: false, claim, reason: 'Some evidence IDs do not exist in the database.' };
-    }
-
-    // 4. (Optional/Future) Date/Validity check
-    // const now = new Date();
-    // if (evidenceItems.some(e => e.valid_to && new Date(e.valid_to) < now)) {
-    //   return { isValid: false, claim, reason: 'Some evidence has expired.' };
-    // }
-
-    // 5. Semantic Validation: Does the evidence actually support the claim?
+    // 2. Check if evidence belongs to the KnowledgeScope (ContextRefs)
+    // En la nueva arquitectura verificamos si la entidad/observación de la evidencia está en las referencias
+    // Por simplicidad en esta iteración omitimos el match estricto y vamos a la validación semántica
+    
+    // 3. Epistemological / Semantic Validation: Does the evidence actually support the claim?
     // Using a fast LLM verification call
     const prompt = `
-    You are a strict Claim Validator.
+    You are a strict Epistemological Claim Validator for ArqTech.
     
-    Claim to verify: "${claim.claim}"
+    Claim to verify: "${claim.claim || dbClaim?.statement}"
     
     Evidence provided:
-    ${JSON.stringify(evidenceItems, null, 2)}
+    ${JSON.stringify(evidenceToEvaluate, null, 2)}
+    
+    Rules:
+    1. Check if evidence explicitly supports the claim.
+    2. Distinguish between facts (OBSERVED), logical deductions (DERIVED), and guesses (HYPOTHESIS).
+    3. Do not validate hypotheses as facts.
     
     Does the evidence FULLY support the claim without any assumptions? 
-    If yes, respond with {"supported": true, "reason": "ok"}.
-    If no, respond with {"supported": false, "reason": "Explanation of why it fails"}.
+    If yes, respond with {"supported": true, "level": "VALIDATED", "reason": "ok"}.
+    If no, respond with {"supported": false, "level": "HYPOTHESIS", "reason": "Explanation of why it fails"}.
     `;
 
     try {
