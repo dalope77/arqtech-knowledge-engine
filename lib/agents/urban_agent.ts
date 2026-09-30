@@ -1,4 +1,10 @@
 import { BaseAgent, AgentContext, AgentResult } from './index';
+import { LLMMessage } from '../llm';
+import { getServiceRoleClient } from '../supabase';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export class UrbanAgent extends BaseAgent {
   constructor() {
@@ -124,16 +130,99 @@ export class UrbanAgent extends BaseAgent {
       
       Your task:
       Answer the user's query clearly, professionally, and creatively. 
-      If WFS data is present, explicitly calculate the building potential (e.g., if Area is 300m2 and FOT is 2, then max buildable area is 600m2). 
-      If the user asked generally (like "a 300m2 lot in La Plata" without address), explain what FOS and FOT mean, give an example for a common zone in La Plata (like U/R2 or U/C1), and tell them to provide an address next time for an exact calculation.
+      If they ask for specific parcels, irregular neighborhoods ("barrios irregulares") or un-subdivided parcels, USE THE query_knowledge_graph TOOL to find them in our database. NEVER say "I don't have records" without using the tool first. 
+      If the user explicitly asks you to RUN the pipeline, DISCOVER new irregular neighborhoods, or EXECUTE the detection process, use the run_discovery_pipeline TOOL.
+      If you find them using the tools, YOU MUST generate a markdown link to mark them on the map: [Ver en el Mapa](/dashboard/map?entityId=ENTITY_ID). 
+      IMPORTANT: The concept of FOS and FOT in Argentina means "Factor de Ocupación del Suelo" and "Factor de Ocupación Total". NEVER invent alternative acronym meanings.
       `;
 
-      const responseText = await this.callLLM(prompt);
+      const messages: LLMMessage[] = [
+        { role: 'user', content: prompt }
+      ];
+
+      const tools = [
+        {
+          type: 'function',
+          function: {
+            name: 'query_knowledge_graph',
+            description: 'Busca en la base de datos interna de claims y entidades (ej. barrios irregulares, parcelas específicas). Úsalo si te preguntan por casos específicos que no tienes en contexto.',
+            parameters: {
+              type: 'object',
+              properties: {
+                search_term: { type: 'string', description: 'El término a buscar (ej. "irregular", "barrio cerrado")' }
+              },
+              required: ['search_term']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'run_discovery_pipeline',
+            description: 'Ejecuta el pipeline real de descubrimiento (ARBA + OSM + Satélite) en AMBA para encontrar NUEVOS barrios irregulares o macizos sin subdividir.',
+            parameters: {
+              type: 'object',
+              properties: {},
+              required: []
+            }
+          }
+        }
+      ];
+
+      let response = await this.callLLMWithTools(messages, { tools });
+
+      // Handle tool call
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        const toolCall = response.tool_calls[0];
+        
+        if (toolCall.function?.name === 'query_knowledge_graph') {
+          console.log('[UrbanAgent] LLM requested database query:', toolCall.function.arguments);
+          const args = JSON.parse(toolCall.function.arguments || '{}');
+          const term = args.search_term || 'regular';
+          
+          // Perform robust DB query
+          const supabase = getServiceRoleClient();
+          const { data: claims } = await supabase
+            .from('claims')
+            .select('statement, confidence, metadata')
+            .or(`statement.ilike.%regular%,statement.ilike.%asentamiento%,statement.ilike.%barrio%,statement.ilike.%${term}%`)
+            .limit(10);
+
+          let dbResults = 'No se encontraron resultados en la base de datos.';
+          if (claims && claims.length > 0) {
+            dbResults = "Encontré los siguientes registros (Claims):\n" + claims.map((c: any) => 
+              `- Afirmación: "${c.statement}" (Confianza: ${c.confidence})\n  ID Entidad (para el mapa): ${c.metadata?.context_refs?.target_parcel || 'desconocido'}`
+            ).join('\n');
+            dbResults += "\n\nINSTRUCCIÓN CRÍTICA: Debes proveer un enlace al mapa usando este ID. Usa el formato Markdown: [Ver en el Mapa](/dashboard/map?entityId=ID_ENTIDAD). Reemplaza ID_ENTIDAD con el ID Entidad indicado.";
+          }
+
+          // Add tool result to conversation and call LLM again
+          messages.push({ role: 'assistant', content: null, tool_calls: response.tool_calls });
+          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: dbResults });
+          
+          response = await this.callLLMWithTools(messages, { tools });
+        } else if (toolCall.function?.name === 'run_discovery_pipeline') {
+          console.log('[UrbanAgent] LLM requested execution of discovery pipeline.');
+          let toolResult = '';
+          try {
+            // Assuming we run in the project root
+            const { stdout, stderr } = await execAsync('npx tsx --env-file=.env.local scripts/discovery_amba.ts');
+            toolResult = `Pipeline Output:\n${stdout}\n${stderr}\n(Nota para el LLM: El pipeline fue ejecutado con éxito. Extrae la información y dale un buen resumen al usuario, e intenta extraer el ID de la parcela si se insertó para enviarlo al mapa)`;
+          } catch (e: any) {
+            toolResult = `Error executing pipeline: ${e.message}`;
+          }
+
+          messages.push({ role: 'assistant', content: null, tool_calls: response.tool_calls });
+          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: toolResult });
+          
+          response = await this.callLLMWithTools(messages, { tools });
+        }
+      }
 
       return {
         status: 'success',
         output: {
-          answer: responseText,
+          answer: response.text || 'Sin respuesta.',
           wfs_data_used: !!wfsData
         }
       };

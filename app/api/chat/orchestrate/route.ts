@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { addMessage, getMessages } from '@/lib/chat/api';
 import { OrchestratorAgent } from '@/lib/agents/orchestrator_agent';
 import { UrbanAgent } from '@/lib/agents/urban_agent';
+import { getServiceRoleClient } from '@/lib/supabase';
 
 export async function POST(req: Request) {
   try {
@@ -25,6 +26,9 @@ export async function POST(req: Request) {
 
     const contextualizedQuery = `[Historial de Conversación]\n${history}\n\n[Nueva Consulta del Usuario]\n${text}`;
 
+    console.log(`\n\n======================================================`);
+    console.log(`🧠 [ORCHESTRATOR] Analizando nueva consulta de usuario: "${text}"`);
+    
     const orchestrator = new OrchestratorAgent();
     const plan = await orchestrator.execute({
       runId: threadId,
@@ -32,16 +36,23 @@ export async function POST(req: Request) {
       input: { query: text } // Only pass the latest query for routing!
     });
 
+    console.log(`🧠 [ORCHESTRATOR] Decisión de Enrutamiento:`);
+    console.log(`   - Acción: ${plan.output?.action}`);
+    console.log(`   - Razonamiento (Plan): ${plan.output?.plan || 'N/A'}`);
+    console.log(`======================================================\n`);
+
     // Check if Orchestrator delegated to URBAN_AGENT
     if (plan.output?.action === 'DELEGATE_URBAN' || (plan.output?.plan && plan.output.plan.includes('DELEGATE_URBAN'))) {
       await addMessage(threadId, 'system', 'Delegando al Agente Urbano para consulta catastral...');
       
+      console.log(`👷‍♂️ [URBAN_AGENT] Asignado para resolver la consulta...`);
       const urban = new UrbanAgent();
       const urbanRes = await urban.execute({
         runId: threadId,
         objective: 'Fetch WFS data',
         input: { query: contextualizedQuery }
       });
+      console.log(`👷‍♂️ [URBAN_AGENT] Ejecución finalizada. Estado: ${urbanRes.status}`);
 
       if (urbanRes.status === 'success') {
         await addMessage(
@@ -69,10 +80,27 @@ export async function POST(req: Request) {
       });
       
       const draftText = marketDraftRes.output?.answer || 'Error generando propuesta.';
-      await addMessage(threadId, 'assistant', `[BORRADOR PRELIMINAR]\n${draftText}`, 'MARKET_AGENT');
+      
+      // Check if Market Agent needs more data
+      if (draftText.includes('[REQ_INFO]')) {
+        const cleanQuestion = draftText.replace('[REQ_INFO]', '').trim();
+        await addMessage(threadId, 'assistant', cleanQuestion, 'MARKET_AGENT');
+        return NextResponse.json({ success: true });
+      }
+
+      // OPTIMIZATION: Save draft to Knowledge Graph instead of Chat History
+      const supabase = getServiceRoleClient();
+      const draftId = `draft-${Date.now()}`;
+      await supabase.from('entities').insert({
+        id: draftId,
+        type: 'DOCUMENT',
+        name: 'Market Draft',
+        metadata: { content: draftText }
+      });
+      await addMessage(threadId, 'assistant', `[BORRADOR GENERADO] Referencia guardada en Grafo: ${draftId}`, 'MARKET_AGENT', { doc_id: draftId });
 
       // 2. Urban Agent Review
-      await addMessage(threadId, 'system', 'El Agente Urbano está auditando la propuesta del Mercado para asegurar cumplimiento normativo...');
+      await addMessage(threadId, 'system', 'El Agente Urbano está auditando la propuesta del Mercado en background...');
       
       const urban = new UrbanAgent();
       const urbanReviewQuery = `[Historial]\n${history}\n\n[Borrador del Agente de Mercado]\n${draftText}\n\nAudita este borrador estrictamente. Verifica que la cantidad de pisos no supere la altura máxima (ej. 30 mts = 10 pisos), que la huella no supere el FOS, y que el área total no supere el FOT. Si hay errores matemáticos o normativos, sé duro y corrígelos. Si está perfecto, responde "APROBADO".`;
@@ -84,10 +112,17 @@ export async function POST(req: Request) {
       });
 
       const urbanText = urbanRes.output?.answer || 'Revisión fallida.';
-      await addMessage(threadId, 'assistant', `[AUDITORÍA URBANA]\n${urbanText}`, 'PARCEL_AGENT');
+      const urbanId = `audit-${Date.now()}`;
+      await supabase.from('entities').insert({
+        id: urbanId,
+        type: 'DOCUMENT',
+        name: 'Urban Audit',
+        metadata: { content: urbanText }
+      });
+      await addMessage(threadId, 'assistant', `[AUDITORÍA URBANA] Referencia guardada en Grafo: ${urbanId}`, 'PARCEL_AGENT', { doc_id: urbanId });
 
       // 3. Legal Agent Review
-      await addMessage(threadId, 'system', 'El Agente Legal está buscando fundamentación jurídica y ventajas competitivas (premios, excepciones)...');
+      await addMessage(threadId, 'system', 'El Agente Legal está buscando fundamentación jurídica en background...');
       
       const { LegalAgent } = await import('@/lib/agents/legal_agent');
       const legal = new LegalAgent();
@@ -100,7 +135,14 @@ export async function POST(req: Request) {
       });
       
       const legalText = legalRes.output?.answer || 'Análisis legal fallido.';
-      await addMessage(threadId, 'assistant', `[ESTRATEGIA LEGAL Y VENTAJAS]\n${legalText}`, 'LEGAL_AGENT');
+      const legalId = `legal-${Date.now()}`;
+      await supabase.from('entities').insert({
+        id: legalId,
+        type: 'DOCUMENT',
+        name: 'Legal Strategy',
+        metadata: { content: legalText }
+      });
+      await addMessage(threadId, 'assistant', `[ESTRATEGIA LEGAL] Referencia guardada en Grafo: ${legalId}`, 'LEGAL_AGENT', { doc_id: legalId });
 
       // 4. Final Market Adjustment (combining both reviews)
       const needsUrbanCorrection = !urbanText.includes('APROBADO');

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Sparkles, Database, Search, ArrowRight, Activity, MapPin, Scale, HelpCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Sparkles, Database, Search, ArrowRight, Activity, MapPin, Scale, HelpCircle, ExternalLink, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Entity, Relation, Observation } from '@/types';
 
@@ -167,6 +168,33 @@ export default function KnowledgeExplorer() {
                           </div>
                         </div>
                       )}
+                      
+                      {/* Traceability Actions */}
+                      <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-2">
+                        {['PARCELA', 'BARRIO', 'BARRIO_CERRADO', 'URBAN_GROWTH_AREA'].includes(entity.type.toUpperCase()) && (
+                          <Link href={`/dashboard/map?highlight=${entity.id}`} className="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-md font-medium hover:bg-emerald-500/20 transition-colors flex items-center gap-1">
+                            <MapPin className="w-3 h-3" /> Ver en Mapa
+                          </Link>
+                        )}
+                        
+                        {entity.type.toUpperCase() === 'INMUEBLE' && entity.metadata?.url && (
+                          <a href={entity.metadata.url} target="_blank" rel="noreferrer" className="text-xs bg-blue-500/10 text-blue-400 px-3 py-1.5 rounded-md font-medium hover:bg-blue-500/20 transition-colors flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" /> Ver Aviso Original
+                          </a>
+                        )}
+                        
+                        {(entity.type.toUpperCase() === 'PDF_CHUNK' || entity.type.toUpperCase() === 'REQUISITO') && entity.metadata?.content && (
+                          <button onClick={() => alert(entity.metadata.content)} className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-md font-medium hover:bg-amber-500/20 transition-colors flex items-center gap-1">
+                            <FileText className="w-3 h-3" /> Leer Texto Extraído
+                          </button>
+                        )}
+                        
+                        {entity.metadata?.ingestion_id && (
+                          <Link href="/dashboard/ingestion" className="text-xs bg-purple-500/10 text-purple-400 px-3 py-1.5 rounded-md font-medium hover:bg-purple-500/20 transition-colors flex items-center gap-1">
+                            <Database className="w-3 h-3" /> Trazabilidad
+                          </Link>
+                        )}
+                      </div>
                     </motion.div>
                   );
                 })}

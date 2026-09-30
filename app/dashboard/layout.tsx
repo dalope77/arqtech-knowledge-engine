@@ -16,6 +16,7 @@ const navItems = [
   { name: 'Agent Reviews', href: '/dashboard/agents/review', icon: Activity },
   { name: 'Visual Labeling', href: '/dashboard/visual', icon: FileText },
   { name: 'Satellite Agent', href: '/dashboard/satellite', icon: MapPin },
+  { name: 'Data Ingestion', href: '/dashboard/ingestion', icon: Database },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

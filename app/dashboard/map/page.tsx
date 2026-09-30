@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
 import { MapPin } from 'lucide-react';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), { ssr: false });
@@ -16,7 +17,9 @@ export default function MapPage() {
         </div>
       </div>
       
-      <MapComponent />
+      <Suspense fallback={<div className="w-full h-[70vh] bg-[#0F0F11] rounded-2xl animate-pulse flex items-center justify-center text-gray-500">Loading map...</div>}>
+        <MapComponent />
+      </Suspense>
     </div>
   );
 }

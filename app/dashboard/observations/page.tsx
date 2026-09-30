@@ -4,8 +4,9 @@ import Link from 'next/link';
 
 export const revalidate = 0;
 
-export default async function ObservationsPage({ searchParams }: { searchParams: { page?: string } }) {
-  const page = Number(searchParams?.page || '1');
+export default async function ObservationsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const resolvedParams = await searchParams;
+  const page = Number(resolvedParams?.page || '1');
   const limit = 50;
   const start = (page - 1) * limit;
   const end = start + limit - 1;

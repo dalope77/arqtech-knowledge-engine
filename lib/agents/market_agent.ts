@@ -14,19 +14,33 @@ export class MarketAgent extends BaseAgent {
       
       User Query: "${query}"
       
-      Your task is to analyze the user's request regarding what to build, how many units, and financial feasibility.
-      You MUST read the conversation history provided in the query to find the FOS, FOT, area, and max height.
+      Your task is to analyze the user's request regarding urban development, feasibility, or market reports, and produce a HIGH-VALUE EXECUTIVE REPORT.
       
-      CRITICAL ARCHITECTURAL RULES FOR OPTIMIZATION:
-      1. NEVER assume a building must reach its maximum height if it compromises floor plate efficiency. It is often better to build fewer floors using the maximum allowed FOS (huella) to achieve the total FOT, rather than building a very tall, skinny needle-building.
-      2. Calculate the Total Buildable Area (Area * FOT).
-      3. Calculate the Max Floor Plate (Area * FOS).
-      4. Divide the Total Buildable Area by the Max Floor Plate to find the optimal number of floors (which might be less than the max allowed height).
-      5. Deduct 20-25% from the gross area for common circulation and walls to get the Net Sellable Area.
-      6. Propose a logical mix of apartments (e.g., 1-bedroom of 45m2, 2-bedroom of 65m2) that fits efficiently in the Net Sellable Area.
-      7. Provide a rough estimation of construction costs (e.g., $700-$900 USD/m2) and sellout prices.
+      CRITICAL INTERACTIVE RULES (ANTI-HALLUCINATION):
+      1. You MUST read the conversation history provided in the query to find any available data (location, FOS, FOT, area, height limit).
+      2. IF YOU ARE MISSING ANY CRITICAL DATA (e.g., you don't know the lot size, the location, or the FOS/FOT), DO NOT MAKE IT UP. DO NOT MOCK DATA.
+      3. Instead of producing the report, your entire response MUST start with the exact text "[REQ_INFO]" followed by a direct question to the user asking for the specific missing information (e.g., "[REQ_INFO] Para armar el informe necesito saber: 1. ¿Cuál es la superficie del lote?").
+      4. If you have the data, you MUST explicitly state where you got it from (e.g., "Según los datos catastrales de ARBA...", "Según el Grafo de Conocimiento...").
       
-      Output a highly professional, mathematically sound, and architecturally optimized feasibility report. Use Markdown.
+      CRITICAL STRUCTURE - YOU MUST FORMAT YOUR OUTPUT EXACTLY USING THESE SECTIONS:
+      
+      ### 1. Volumetría y Dinámica (El Mes en Números)
+      - Provide data (or robust estimates if exact data is missing) on market supply (e.g. number of properties, new vs dropped listings).
+      - Detail the market rotation speed (e.g. typical days on market) and pricing adjustment trends (e.g. % of properties lowering prices).
+      
+      ### 2. Pricing Preciso y Optimización Arquitectónica
+      - Define precise values: USD/m2 for built space, USD/m2 for lots, or USD/hectare for rural land.
+      - Apply CRITICAL ARCHITECTURAL RULES: Calculate Total Buildable Area (Area * FOT) and Max Floor Plate (Area * FOS). Find the optimal number of floors (Total Buildable / Max Plate). Deduct 20-25% for circulation to get Net Sellable Area.
+      - Provide a logical unit mix and rough construction cost vs sellout estimation.
+      
+      ### 3. Perspectiva Regional
+      - Position the target area against its neighboring districts.
+      - Explain why the land value in this specific location is competitive or premium compared to its surroundings.
+      
+      ### 4. Fundamentación Estratégica
+      - Justify the prices and feasibility based on real strategic infrastructure (e.g., proximity to highways, industrial parks, health centers, universities, or demographic growth).
+      
+      Produce a highly professional, mathematically sound, and architecturally optimized feasibility report. Use Markdown natively.
       `;
 
       const response = await this.callLLM(prompt);

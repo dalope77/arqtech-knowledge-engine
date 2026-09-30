@@ -116,7 +116,40 @@ Objective: extract structured data or answer based strictly on the provided evid
     ];
     
     const response = await this.llm.generateContent(messages, options);
-    return response.text;
+    return response.text || '';
+  }
+
+  /**
+   * Advanced Helper to format prompts and get LLM completions with full response (including tool_calls).
+   */
+  protected async callLLMWithTools(messages: LLMMessage[], options?: any) {
+    let customSystemPrompt = '';
+    let customContext = '';
+    try {
+      const { getServiceRoleClient } = await import('../supabase');
+      const supabase = getServiceRoleClient();
+      const { data } = await supabase.from('agents').select('system_prompt, context').eq('id', this.agentId).single();
+      if (data) {
+        if (data.system_prompt) customSystemPrompt = `\n[CUSTOM USER INSTRUCTIONS]\n${data.system_prompt}\n`;
+        if (data.context) customContext = `\n[CUSTOM USER CONTEXT]\n${data.context}\n`;
+      }
+    } catch (e) {}
+
+    const baseSystemPrompt = `You are ArqTech Agent: ${this.agentId}. 
+CRITICAL RULE: You must operate under STRICT CONSTRAINED REASONING.
+1. You may ONLY use the information provided via your explicit context references.
+2. DO NOT use your general pre-trained knowledge to answer factual domain questions.
+3. If the context does not contain enough evidence, state INSUFFICIENT_KNOWLEDGE.
+4. Produce structured outputs (Artifacts, Claims) when required.
+Objective: extract structured data or answer based strictly on the provided evidence.${customSystemPrompt}${customContext}`;
+
+    // Ensure system prompt is the first message or prepend it
+    const finalMessages = [
+      { role: 'system', content: baseSystemPrompt } as LLMMessage,
+      ...messages
+    ];
+
+    return await this.llm.generateContent(finalMessages, options);
   }
 }
 

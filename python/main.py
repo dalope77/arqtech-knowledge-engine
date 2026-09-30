@@ -11,6 +11,9 @@ import numpy as np
 from doctr.io import DocumentFile
 from doctr.models import ocr_predictor
 import logging
+import asyncio
+
+ocr_lock = asyncio.Lock()
 
 predictor = ocr_predictor(pretrained=True)
 
@@ -28,6 +31,9 @@ app = FastAPI(title="ArqTech Visual Service", description="docTR & YOLO Microser
 class OCRRequest(BaseModel):
     image_url: str
     bbox: Optional[List[float]] = None # [x, y, w, h] to crop before OCR
+
+class PDFOCRRequest(BaseModel):
+    pdf_url: str
 
 class SatelliteChangeRequest(BaseModel):
     t1_image_url: str
@@ -56,6 +62,28 @@ async def perform_ocr(req: OCRRequest):
         
         return export_res
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ocr/pdf")
+async def perform_pdf_ocr(req: PDFOCRRequest):
+    try:
+        logging.info(f"Downloading PDF from {req.pdf_url}")
+        response = requests.get(req.pdf_url)
+        pdf_bytes = response.content
+        
+        logging.info("Waiting for OCR Lock (preventing concurrency crashes)...")
+        async with ocr_lock:
+            logging.info("Parsing PDF with docTR...")
+            doc = DocumentFile.from_pdf(pdf_bytes)
+            result = predictor(doc)
+            
+            export_res = result.export()
+            export_res["status"] = "success"
+            export_res["extraction_method"] = "docTR_pdf"
+            
+        return export_res
+    except Exception as e:
+        logging.error(f"Error in PDF OCR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class LayoutRequest(BaseModel):

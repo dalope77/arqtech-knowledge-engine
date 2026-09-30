@@ -37,8 +37,8 @@ export class OrchestratorAgent extends BaseAgent {
       
       Routing Options:
       - "DELEGATE_DATA": EXTREMELY IMPORTANT: Use this IMMEDIATELY for ANY analytical, statistical, grouping, or counting query (e.g., "cuántos", "cantidad", "how many", "count", "grouped by", "amount of barrios per partido", "estadísticas"). DO NOT return INSUFFICIENT_KNOWLEDGE for these queries.
-      - "DELEGATE_URBAN": Use this for ANY query involving urban codes, zoning, building potential, FOS, FOT, ARBA, UrbaSIG, or what can be built on a specific lot. ALSO use this for queries containing cadastral data like "partido", "partida", or "nomenclatura".
-      - "DELEGATE_MARKET": Use this for ANY query asking about financial feasibility, costs, ROI, what type of apartments to build, unit counts ("cuántos deptos"), prices, or real estate market recommendations. NEVER synthesize architectural layout optimization or financial answers yourself. ALWAYS delegate to MARKET.
+      - "DELEGATE_URBAN": Use this for ANY query involving urban codes, zoning, building potential, FOS, FOT, ARBA, UrbaSIG, what can be built on a specific lot, OR searching for urban patterns like irregular neighborhoods ("barrios irregulares", "asentamientos"), un-subdivided parcels ("sin subdividir"), or geographic spatial queries. ALSO use this for queries containing cadastral data like "partido", "partida", or "nomenclatura".
+      - "DELEGATE_MARKET": Use this for ANY query asking about financial feasibility, feasibility reports ("informe de factibilidad"), costs, ROI, what type of apartments to build, unit counts ("cuántos deptos"), prices, or real estate market recommendations. NEVER synthesize architectural layout optimization or financial answers yourself. ALWAYS delegate to MARKET.
       - "DELEGATE_PARCEL": Use ONLY for internal graph operations explicitly requesting to update a parcel's entity in the database.
       - "SYNTHESIZE": Use ONLY to answer general conversational queries or summarize already provided Knowledge Scope. Do not use for calculating units or areas!
       - "INSUFFICIENT_KNOWLEDGE": ONLY use this for factual queries about specific entities that are missing from the Knowledge Scope and where no other agent can help. NEVER use this for "how many" or counting queries.
@@ -63,9 +63,9 @@ export class OrchestratorAgent extends BaseAgent {
         // Fallback mock plan if LLM is mock or fails to return JSON
         const rawTextLower = (planRaw || '').toLowerCase();
         let fallbackAction = 'SYNTHESIZE';
-        if (rawTextLower.includes('partido') || rawTextLower.includes('partida')) {
+        if (rawTextLower.includes('partido') || rawTextLower.includes('partida') || rawTextLower.includes('irregular') || rawTextLower.includes('subdividir') || rawTextLower.includes('barrio')) {
           fallbackAction = 'DELEGATE_URBAN';
-        } else if (rawTextLower.includes('deptos') || rawTextLower.includes('rentabilidad')) {
+        } else if (rawTextLower.includes('deptos') || rawTextLower.includes('rentabilidad') || rawTextLower.includes('factibilidad') || rawTextLower.includes('informe')) {
           fallbackAction = 'DELEGATE_MARKET';
         }
 

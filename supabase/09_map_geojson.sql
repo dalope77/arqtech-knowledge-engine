@@ -21,6 +21,8 @@ BEGIN
         e.metadata, 
         ST_AsGeoJSON(e.geom)::json AS geojson
     FROM entities e
-    WHERE e.geom IS NOT NULL;
+    WHERE e.geom IS NOT NULL
+    ORDER BY e.created_at DESC
+    LIMIT 2000;
 END;
 $$;

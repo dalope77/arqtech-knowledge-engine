@@ -6,8 +6,9 @@ import Link from 'next/link';
 
 export const revalidate = 0; // Disable static rendering
 
-export default async function EntitiesPage({ searchParams }: { searchParams: { page?: string } }) {
-  const page = Number(searchParams?.page || '1');
+export default async function EntitiesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const resolvedParams = await searchParams;
+  const page = Number(resolvedParams?.page || '1');
   const limit = 50;
   const start = (page - 1) * limit;
   const end = start + limit - 1;
@@ -76,7 +77,9 @@ export default async function EntitiesPage({ searchParams }: { searchParams: { p
                 <tr key={entity.id} className="hover:bg-white/5 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col">
-                      <span className="font-medium text-white">{entity.name}</span>
+                      <Link href={`/dashboard/map?entityId=${entity.id}`} className="font-medium text-white hover:text-blue-400 hover:underline transition-colors">
+                        {entity.name}
+                      </Link>
                       <span className="text-xs text-gray-500 font-mono mt-0.5">{entity.id}</span>
                     </div>
                   </td>

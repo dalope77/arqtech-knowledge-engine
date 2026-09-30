@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { getThreads, createThread, getMessages, addMessage, Thread, Message } from '@/lib/chat/api';
 
 export default function ChatPage() {
@@ -135,7 +136,9 @@ export default function ChatPage() {
                     {m.agent_id}
                   </div>
                 )}
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</div>
+                <div className="text-sm leading-relaxed prose prose-invert max-w-none prose-p:leading-relaxed prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline">
+                  <ReactMarkdown>{m.content || ''}</ReactMarkdown>
+                </div>
                 {m.metadata?.wfs_data_used && (
                   <div className="mt-3 text-xs bg-black/40 p-2 rounded-lg text-green-400 border border-green-500/20 font-mono">
                     <span className="flex items-center gap-1">
