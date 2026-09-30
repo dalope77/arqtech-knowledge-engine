@@ -20,11 +20,11 @@ export async function POST(req: Request) {
     const text = pdfData.text;
 
     // 2. Fragmentar el documento (Chunking simple)
-    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 50);
+    const paragraphs = text.split(/\n\s*\n/).filter((p: string) => p.trim().length > 50);
     
     if (paragraphs.length === 0) {
       // Intentar dividir por salto de linea simple si no hay dobles
-      paragraphs.push(...text.split('\n').filter(p => p.trim().length > 50));
+      paragraphs.push(...text.split('\n').filter((p: string) => p.trim().length > 50));
     }
 
     const docId = `DOC_${ingestionId.split('-')[0].toUpperCase()}`;
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     await supabase.from('entities').upsert(docEntity, { onConflict: 'id' });
 
     // 4. Crear los chunks reales
-    const chunkEntities = paragraphs.map((p, index) => ({
+    const chunkEntities = paragraphs.map((p: string, index: number) => ({
       id: `${docId}_CHUNK_${index}`,
       type: 'PDF_CHUNK',
       name: `Sección ${index + 1} - ${file.name}`,
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Crear relaciones
-    const relations = chunkEntities.map(chunk => ({
+    const relations = chunkEntities.map((chunk: any) => ({
       id: `REL_${chunk.id}_BELONGS_${docId}`,
       from_entity_id: chunk.id,
       relation_type: 'extraido_de',

@@ -88,7 +88,8 @@ export class ClaimValidator {
         { role: 'user', content: prompt }
       ], { response_format: { type: 'json_object' } });
       
-      const analysis = JSON.parse(response.text);
+      const responseText = response.text || "{}";
+      const analysis = JSON.parse(responseText);
       
       if (!analysis.supported) {
         return { isValid: false, claim, reason: analysis.reason };

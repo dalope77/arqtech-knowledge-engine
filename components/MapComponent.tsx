@@ -395,12 +395,15 @@ export default function MapComponent() {
                   if (deleteMode) {
                     L.DomEvent.stopPropagation(e as any);
                     handleDirectDelete(poly);
+                  } else {
+                    setSelectedEntity(poly);
                   }
-                }
+                },
+                popupclose: () => setSelectedEntity(null)
               }}
             >
               {!deleteMode && (
-                <Popup onOpen={() => setSelectedEntity(poly)} onClose={() => setSelectedEntity(null)}>
+                <Popup>
                   <div className="p-1 text-gray-800">
                     <h3 className="font-bold text-sm">{poly.name}</h3>
                     <p className="text-xs text-gray-500">{poly.type}</p>
@@ -443,12 +446,15 @@ export default function MapComponent() {
                   if (deleteMode) {
                     L.DomEvent.stopPropagation(e as any);
                     handleDirectDelete(entity);
+                  } else {
+                    setSelectedEntity(entity);
                   }
-                }
+                },
+                popupclose: () => setSelectedEntity(null)
               }}
             >
               {!deleteMode && (
-                <Popup onOpen={() => setSelectedEntity(entity)} onClose={() => setSelectedEntity(null)}>
+                <Popup>
                   <div className="p-1 text-gray-800">
                     <h3 className="font-bold text-sm">{entity.name}</h3>
                     <p className="text-xs text-gray-500">{entity.type}</p>

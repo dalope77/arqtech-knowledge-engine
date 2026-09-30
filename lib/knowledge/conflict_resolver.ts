@@ -76,7 +76,7 @@ export class ConflictResolver {
       const response = await this.llm.generateContent([
         { role: 'user', content: prompt }
       ]);
-      description = response.text.trim();
+      description = (response.text || "Conflict in observations.").trim();
     } catch (e) {
       console.warn('LLM failed to summarize conflict.');
     }
