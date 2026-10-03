@@ -151,15 +151,20 @@ async function main() {
         }
       }
     } catch (error) {
-      console.warn(`⚠️ Error conectando al servicio Python local (simulando detección para demo).`);
-      hasSatelliteChange = true; // Forzamos para demo si no corre el servicio python
+      console.warn(`⚠️ Error conectando al servicio Python local. Se requerirá etiquetado visual manual.`);
+      hasSatelliteChange = false;
     }
 
     // 4. CONSOLIDACIÓN EPISTEMOLÓGICA (Orquestador)
     console.log(`🧠 Fase 3: Consolidación y Guardado en Base de Datos...`);
     
-    if (!targetParcel.subdivided_in_arba && (hasOsmStreets || hasSatelliteChange)) {
-      console.log(`🔥 CONCLUSIÓN: ¡Posible Barrio sin Regularizar detectado!`);
+    // Si no está subdividido en ARBA, lo guardamos para que entre al pipeline.
+    // Si tiene evidencias automáticas va como confirmado, de lo contrario va a la UI de etiquetado.
+    if (!targetParcel.subdivided_in_arba) {
+      const isConfirmed = hasOsmStreets || hasSatelliteChange;
+      const pipelineStatus = isConfirmed ? 'CONFIRMADO_AUTOMATICO' : 'REQUIERE_ETIQUETADO_VISUAL';
+      
+      console.log(`🔥 CONCLUSIÓN: Guardando parcela. Estado: ${pipelineStatus}`);
       
       const parcelId = 'parcel-' + Date.now() + Math.floor(Math.random()*1000);
       const { error: entErr } = await supabase.from('entities').insert({
@@ -168,7 +173,8 @@ async function main() {
         name: targetParcel.nomenclatura,
         metadata: { 
           nomenclatura: targetParcel.nomenclatura, 
-          area: targetParcel.area_m2 
+          area: targetParcel.area_m2,
+          pipeline_status: pipelineStatus
         },
         geom: targetParcel.wkt
       });

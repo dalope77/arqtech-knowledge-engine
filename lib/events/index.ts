@@ -11,6 +11,7 @@ export async function logEvent(
   const { data, error } = await client
     .from('events')
     .insert({
+      id: crypto.randomUUID(),
       actor_id: actorId,
       event_type: eventType,
       entity_id: entityId,

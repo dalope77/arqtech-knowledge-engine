@@ -16,6 +16,7 @@ const defaultAgents = [
   { id: 'SATELLITE_AGENT', name: 'Satellite / Urban Growth Agent', description: 'Analyzes spatial and temporal data (GeoJSON, WKT, TIFs) to detect territorial transformations.', status: 'active' },
   { id: 'VISUAL_AGENT', name: 'Visual Annotation Agent', description: 'Processes technical blueprints and imagery to extract objects via YOLO/docTR.', status: 'active' },
   { id: 'SCRAPING_AGENT', name: 'Web Scraping Agent', description: 'Navigates URLs, extracts raw HTML/Text, and maps it into structured Knowledge Graph entities.', status: 'active' },
+  { id: 'OPTIMIZATION_AGENT', name: 'Continuous Improvement Agent', description: 'Reads telemetry (agent runs, rejected proposals) and proposes architectural optimizations.', status: 'active' },
 ];
 
 export default function AgentsPage() {

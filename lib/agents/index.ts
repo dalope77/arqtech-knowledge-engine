@@ -125,13 +125,29 @@ Objective: extract structured data or answer based strictly on the provided evid
   protected async callLLMWithTools(messages: LLMMessage[], options?: any) {
     let customSystemPrompt = '';
     let customContext = '';
+    let dynamicTools: any[] = [];
+
     try {
       const { getServiceRoleClient } = await import('../supabase');
       const supabase = getServiceRoleClient();
-      const { data } = await supabase.from('agents').select('system_prompt, context').eq('id', this.agentId).single();
+      const { data } = await supabase.from('agents').select('system_prompt, context, mcp_config').eq('id', this.agentId).single();
       if (data) {
         if (data.system_prompt) customSystemPrompt = `\n[CUSTOM USER INSTRUCTIONS]\n${data.system_prompt}\n`;
         if (data.context) customContext = `\n[CUSTOM USER CONTEXT]\n${data.context}\n`;
+        
+        // Parse MCP Config if it contains custom tools for this agent
+        if (data.mcp_config) {
+          try {
+            const mcpObj = typeof data.mcp_config === 'string' ? JSON.parse(data.mcp_config) : data.mcp_config;
+            if (Array.isArray(mcpObj)) {
+              dynamicTools = mcpObj;
+            } else if (mcpObj && Array.isArray(mcpObj.tools)) {
+              dynamicTools = mcpObj.tools;
+            }
+          } catch (err) {
+            console.warn(`[BaseAgent] Invalid JSON in mcp_config for agent ${this.agentId}`);
+          }
+        }
       }
     } catch (e) {}
 
@@ -149,7 +165,13 @@ Objective: extract structured data or answer based strictly on the provided evid
       ...messages
     ];
 
-    return await this.llm.generateContent(finalMessages, options);
+    // Merge static tool options with dynamic MCP tools
+    const finalOptions = { ...options };
+    if (dynamicTools.length > 0) {
+      finalOptions.tools = [...(options?.tools || []), ...dynamicTools];
+    }
+
+    return await this.llm.generateContent(finalMessages, finalOptions);
   }
 }
 

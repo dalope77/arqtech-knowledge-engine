@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "^2.117.1",
     "better-sqlite3": "^13.0.3",
     "clsx": "^2.1.1",
+    "dotenv": "^18.0.5",
     "fast-xml-parser": "^5.11.1",
     "framer-motion": "^13.4.3",
     "leaflet": "^1.9.4",

@@ -125,14 +125,17 @@ export class UrbanAgent extends BaseAgent {
       
       User Query: "${query || 'Análisis de lote'}"
       
+      PRE-FILTERED CONTEXT (Reduced Universe):
+      ${context.contextRefs ? JSON.stringify(context.contextRefs) : 'No specific context provided.'}
+      
       Live WFS Data retrieved for this request:
       ${wfsData ? wfsData : "No specific coordinates were provided, so no live WFS data could be fetched. Please answer theoretically based on the query, and gently remind the user that to give exact FOS/FOT they need to provide a location or address."}
       
       Your task:
-      Answer the user's query clearly, professionally, and creatively. 
-      If they ask for specific parcels, irregular neighborhoods ("barrios irregulares") or un-subdivided parcels, USE THE query_knowledge_graph TOOL to find them in our database. NEVER say "I don't have records" without using the tool first. 
+      Answer the user's query clearly, professionally, and creatively using both the PRE-FILTERED CONTEXT and the Live WFS Data.
+      If they ask for specific parcels, irregular neighborhoods ("barrios irregulares") or un-subdivided parcels, USE THE query_knowledge_graph TOOL to find them in our database (if they are not already in the PRE-FILTERED CONTEXT). NEVER say "I don't have records" without using the tool first. 
       If the user explicitly asks you to RUN the pipeline, DISCOVER new irregular neighborhoods, or EXECUTE the detection process, use the run_discovery_pipeline TOOL.
-      If you find them using the tools, YOU MUST generate a markdown link to mark them on the map: [Ver en el Mapa](/dashboard/map?entityId=ENTITY_ID). 
+      If you find them using the tools or context, YOU MUST generate a markdown link to mark them on the map: [Ver en el Mapa](/dashboard/map?entityId=ENTITY_ID). 
       IMPORTANT: The concept of FOS and FOT in Argentina means "Factor de Ocupación del Suelo" and "Factor de Ocupación Total". NEVER invent alternative acronym meanings.
       `;
 

@@ -116,11 +116,31 @@ export default function MapComponent() {
     if (ent && mapRef.current) {
       let lat = parseFloat(ent.metadata?.lat);
       let lon = parseFloat(ent.metadata?.lon);
-      if (!lat && ent.geom) {
-        // A very basic centroid extraction if it's a polygon and we have geom
-        // For accurate centering, the backend could send a centroid, but let's try
+      
+      if (isNaN(lat) && ent.geom) {
+        try {
+          const geom = typeof ent.geom === 'string' ? JSON.parse(ent.geom) : ent.geom;
+          let coordsList = [];
+          if (geom.type === 'Polygon') coordsList = geom.coordinates[0];
+          else if (geom.type === 'MultiPolygon') coordsList = geom.coordinates[0][0];
+          
+          if (coordsList && coordsList.length > 0) {
+            const lons = coordsList.map((c: any) => Number(c[0]));
+            const lats = coordsList.map((c: any) => Number(c[1]));
+            
+            // @ts-ignore
+            mapRef.current.fitBounds([
+              [Math.min(...lats), Math.min(...lons)],
+              [Math.max(...lats), Math.max(...lons)]
+            ], { padding: [50, 50], animate: true, duration: 1.5 });
+            return; // Ya centramos con bounds
+          }
+        } catch (e) {
+          console.warn("No se pudo calcular el bounding box de la geometría", e);
+        }
       }
-      if (lat && lon) {
+      
+      if (!isNaN(lat) && !isNaN(lon)) {
         mapRef.current.flyTo([lat, lon], 16, { duration: 1.5 });
       }
     }

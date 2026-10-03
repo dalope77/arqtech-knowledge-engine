@@ -14,10 +14,13 @@ export class MarketAgent extends BaseAgent {
       
       User Query: "${query}"
       
-      Your task is to analyze the user's request regarding urban development, feasibility, or market reports, and produce a HIGH-VALUE EXECUTIVE REPORT.
+      PRE-FILTERED CONTEXT (Reduced Universe):
+      ${context.contextRefs ? JSON.stringify(context.contextRefs) : 'No specific context provided.'}
+      
+      Your task is to analyze the user's request regarding urban development, feasibility, or market reports, and produce a HIGH-VALUE EXECUTIVE REPORT using the PRE-FILTERED CONTEXT as your primary source of truth.
       
       CRITICAL INTERACTIVE RULES (ANTI-HALLUCINATION):
-      1. You MUST read the conversation history provided in the query to find any available data (location, FOS, FOT, area, height limit).
+      1. You MUST read the conversation history and the PRE-FILTERED CONTEXT to find any available data (location, FOS, FOT, area, height limit).
       2. IF YOU ARE MISSING ANY CRITICAL DATA (e.g., you don't know the lot size, the location, or the FOS/FOT), DO NOT MAKE IT UP. DO NOT MOCK DATA.
       3. Instead of producing the report, your entire response MUST start with the exact text "[REQ_INFO]" followed by a direct question to the user asking for the specific missing information (e.g., "[REQ_INFO] Para armar el informe necesito saber: 1. ¿Cuál es la superficie del lote?").
       4. If you have the data, you MUST explicitly state where you got it from (e.g., "Según los datos catastrales de ARBA...", "Según el Grafo de Conocimiento...").

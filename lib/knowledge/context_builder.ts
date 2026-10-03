@@ -2,6 +2,7 @@ import { KnowledgeScope, Entity, Relation, Observation } from '@/types';
 import { db } from '../db';
 import { getDefaultLLMProvider } from '../llm';
 import { ConflictResolver } from './conflict_resolver';
+import { RetrievalRouter } from './retrieval_router';
 
 export class QueryAnalyzer {
   private llm = getDefaultLLMProvider();
@@ -47,26 +48,53 @@ export class QueryAnalyzer {
 
 export class ContextBuilder {
   private queryAnalyzer = new QueryAnalyzer();
+  private retrievalRouter = new RetrievalRouter();
 
   async buildInitialScope(query: string, userContext?: any): Promise<KnowledgeScope> {
     // 1. Analyze Query
     const analysis = await this.queryAnalyzer.analyze(query, userContext);
     const keywords = analysis.keywords || [];
     const entitiesToSearch = analysis.entitiesToSearch || [];
+    const requiredDomains = analysis.requiredDomains || [];
     
     // 2. Scalable database search using keywords to grab ENTITY IDs ONLY
     const searchTerms = [...keywords, ...entitiesToSearch];
     const matchedEntities = await db.searchEntities(searchTerms, 10);
     const entityIds = matchedEntities.map(e => e.id);
 
-    // 3. Obtain Relevant Artifacts and Evidence
-    // (Por ahora un stub, en el futuro usaremos RetrievalRouter para buscar artifacts semánticamente)
+    // 3. Obtain Relevant Artifacts and Evidence using RetrievalRouter (The "Ontological Graph" query)
     const artifactIds: string[] = [];
     const evidenceIds: string[] = [];
+    
+    let intent = 'general';
+    if (requiredDomains.includes('normativa') || requiredDomains.includes('legal')) intent = 'search normative';
+    if (requiredDomains.includes('espacial')) intent = 'spatial';
+    if (requiredDomains.includes('mercado')) intent = 'relational';
 
-    // 4. Scope Validator (Fase 6 incrustada parcialmente)
-    // Nos aseguramos de no incluir información de más.
-    const finalEntities = entityIds.slice(0, 5); // Limitar a las 5 más relevantes
+    const routerResults = await this.retrievalRouter.retrieve(intent, { 
+      query, 
+      searchTerms,
+      domains: requiredDomains
+    });
+
+    if (routerResults && Array.isArray(routerResults)) {
+      for (const item of routerResults) {
+        if (item.id) {
+          if (item.statement) {
+            // It's a claim (evidence)
+            if (!evidenceIds.includes(item.id)) evidenceIds.push(item.id);
+          } else if (item.type && !entityIds.includes(item.id)) {
+            // It's an entity
+            entityIds.push(item.id);
+          }
+        }
+      }
+    }
+
+    // 4. Scope Validator
+    // Nos aseguramos de no incluir información de más para no ahogar al LLM y ahorrar tokens
+    const finalEntities = entityIds.slice(0, 8);
+    const finalEvidence = evidenceIds.slice(0, 10);
     
     return {
       query,
@@ -78,13 +106,13 @@ export class ContextBuilder {
       documentIds: [],
       eventIds: [],
       vectorResults: [],
-      allowedAgentIds: this.determineAllowedAgents(analysis.requiredDomains),
+      allowedAgentIds: this.determineAllowedAgents(requiredDomains),
       maxDepth: 1,
       missingInformation: [],
       expansionRequests: [],
-      // Nuevos campos de referencias para la Fase 5
+      // Referencias del universo reducido que se pasan al Agente
       artifactIds: artifactIds,
-      evidenceIds: []
+      evidenceIds: finalEvidence
     };
   }
 
@@ -93,9 +121,7 @@ export class ContextBuilder {
     
     // Expansion: scalable search
     const newEntities = await db.searchEntities(missingInformation, 5);
-    
     const newEntityIds = newEntities.map(e => e.id).filter(id => !currentScope.entityIds.includes(id));
-    
     currentScope.entityIds.push(...newEntityIds);
     
     for (const id of newEntityIds) {

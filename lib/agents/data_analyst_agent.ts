@@ -20,7 +20,10 @@ export class DataAnalystAgent extends BaseAgent {
       You are the ArqTech Data Analyst Agent.
       User Query: "${query}"
       
-      Your goal is to extract statistical or aggregated information from the database schema.
+      PRE-FILTERED CONTEXT (Reduced Universe):
+      ${context.contextRefs ? JSON.stringify(context.contextRefs) : 'No specific context provided.'}
+      
+      Your goal is to extract statistical or aggregated information from the database schema, using the PRE-FILTERED CONTEXT to narrow your search if applicable.
       The database has the following tables:
       - 'entities': id, type, name, external_id, metadata (JSONB), created_at, updated_at
       - 'relations': id, from_entity_id, relation_type, to_entity_id, confidence, metadata (JSONB)

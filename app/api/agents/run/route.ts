@@ -101,6 +101,12 @@ export async function POST(request: Request) {
       if (knowledgeScope && knowledgeScope.entityIds) {
         contextRefs.entities = knowledgeScope.entityIds;
       }
+      if (knowledgeScope && knowledgeScope.evidenceIds) {
+        contextRefs.evidence = knowledgeScope.evidenceIds;
+      }
+      if (knowledgeScope && knowledgeScope.artifactIds) {
+        contextRefs.artifacts = knowledgeScope.artifactIds;
+      }
       
       // Initialize the blackboard in DB
       await client

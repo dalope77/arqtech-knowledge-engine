@@ -1,5 +1,6 @@
 import { supabase, getServiceRoleClient } from '../supabase';
 import { Entity, EntityType } from '../../types';
+import { logEvent } from '../events';
 
 export async function getEntity(id: string): Promise<Entity | null> {
   const { data, error } = await supabase
@@ -37,6 +38,14 @@ export async function createEntity(
     console.error('Error creating entity:', error);
     return null;
   }
+  
+  // Auditar la creación de la entidad automáticamente en el Event Ledger
+  await logEvent('SYSTEM_CORE', 'discovered_entity', data.id, {
+    type,
+    name,
+    external_id
+  });
+
   return data;
 }
 

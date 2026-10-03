@@ -9,11 +9,23 @@ export class SatelliteAgent extends BaseAgent {
   }
 
   async execute(context: AgentContext): Promise<AgentResult> {
-    const supabase = getServiceRoleClient();
-    const { t1_url, t2_url, regionWKT } = context.input;
+    // OPTIMIZATION: Check Blackboard first, fallback to context.input
+    const blackboard = await this.getBlackboard(context.runId);
+    
+    const t1_url = context.input?.t1_url || blackboard?.t1_url;
+    const t2_url = context.input?.t2_url || blackboard?.t2_url;
+    const regionWKT = context.input?.regionWKT || blackboard?.regionWKT;
+
     if (!t1_url || !t2_url || !regionWKT) {
-       return { status: 'failed', error: 'Missing parameters' };
+       console.log(`[SatelliteAgent] Faltan parámetros requeridos en Blackboard/Input.`);
+       // Retornamos insufficient_knowledge para que el orquestador sepa que debe buscarlos
+       return { 
+         status: 'insufficient_knowledge', 
+         output: { missing_information: ['t1_url', 't2_url', 'regionWKT'] } 
+       };
     }
+
+    const supabase = getServiceRoleClient();
 
     try {
       console.log(`[SatelliteAgent] Iniciando análisis temporal T1 -> T2...`);
